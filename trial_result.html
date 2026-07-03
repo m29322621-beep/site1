@@ -1,0 +1,333 @@
+{% extends "base.html" %}
+{% block content %}
+
+<style>
+        body {
+            font-family: 'Segoe UI', Arial, sans-serif;
+            max-width: 700px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f8f9fa;
+        }
+        .container {
+            background: white;
+            border-radius: 8px;
+            padding: 30px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+        h2 {
+            color: #333;
+            margin-bottom: 20px;
+            padding-bottom: 10px;
+            border-bottom: 2px solid #eaeaea;
+        }
+        .info-block {
+            background: #f8f9fa;
+            border-left: 4px solid #007bff;
+            padding: 15px;
+            margin-bottom: 25px;
+            border-radius: 0 8px 8px 0;
+        }
+        .info-row {
+            margin: 5px 0;
+            font-size: 16px;
+        }
+        .info-label {
+            font-weight: 600;
+            color: #495057;
+            display: inline-block;
+            width: 100px;
+        }
+        .form-group {
+            margin-bottom: 25px;
+            padding: 20px;
+            background: #fff;
+            border: 1px solid #e9ecef;
+            border-radius: 8px;
+        }
+        .form-group h3 {
+            margin-top: 0;
+            margin-bottom: 15px;
+            color: #495057;
+            font-size: 18px;
+        }
+        .radio-group {
+            display: flex;
+            gap: 20px;
+            flex-wrap: wrap;
+            margin-bottom: 15px;
+        }
+        .radio-group label {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+            cursor: pointer;
+            padding: 8px 15px;
+            background: #f8f9fa;
+            border: 1px solid #dee2e6;
+            border-radius: 6px;
+            transition: all 0.2s;
+        }
+        .radio-group label:hover {
+            background: #e9ecef;
+        }
+        .radio-group input[type="radio"] {
+            margin: 0;
+        }
+        .form-control {
+            width: 100%;
+            padding: 10px 12px;
+            border: 1px solid #ced4da;
+            border-radius: 6px;
+            font-size: 14px;
+            box-sizing: border-box;
+            margin-top: 8px;
+        }
+        .form-control:focus {
+            outline: none;
+            border-color: #007bff;
+            box-shadow: 0 0 0 3px rgba(0,123,255,0.1);
+        }
+        .btn {
+            padding: 12px 24px;
+            background-color: #007bff;
+            color: white;
+            border: none;
+            border-radius: 6px;
+            font-size: 16px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: background-color 0.2s;
+        }
+        .btn:hover {
+            background-color: #0056b3;
+        }
+        .btn:disabled {
+            background-color: #6c757d;
+            cursor: not-allowed;
+        }
+        .back-link {
+            display: inline-block;
+            margin-top: 20px;
+            color: #6c757d;
+            text-decoration: none;
+            font-size: 14px;
+        }
+        .back-link:hover {
+            color: #0056b3;
+            text-decoration: underline;
+        }
+        .hidden {
+            display: none;
+        }
+        .alert {
+            padding: 12px 20px;
+            background: #fff3cd;
+            border: 1px solid #ffeeba;
+            color: #856404;
+            border-radius: 6px;
+            margin-bottom: 20px;
+        }
+    </style>
+<div class="container">
+        <h2>Результат пробного занятия</h2>
+
+        <div class="info-block">
+            <div class="info-row"><span class="info-label">Ученик:</span> {{ trial[0] }}</div>
+            <div class="info-row"><span class="info-label">Предмет:</span> {{ trial[1] }}</div>
+            <div class="info-row"><span class="info-label">Дата:</span> {{ trial[2] or 'Не указана' }}</div>
+            <div class="info-row"><span class="info-label">Время:</span> {{ trial[3] or 'Не указано' }}</div>
+        </div>
+
+        <form method="POST" id="resultForm">
+            <input type="hidden" name="student_name" value="{{ trial[0] }}">
+            <input type="hidden" name="subject" value="{{ trial[1] }}">
+
+            
+            <div class="form-group">
+                <h3>1. Занятие было проведено?</h3>
+                <div class="radio-group">
+                    <label>
+                        <input type="radio" name="attendance" value="present" required>
+                        Да, было
+                    </label>
+                    <label>
+                        <input type="radio" name="attendance" value="absent" required>
+                        Нет, ученик не пришёл
+                    </label>
+                </div>
+            </div>
+
+            
+            <div id="presentBlock" class="form-group hidden">
+                <h3>2. Результат занятия</h3>
+                <div class="radio-group">
+                    <label>
+                        <input type="radio" name="result" value="enrolled">
+                        Записался на постоянные занятия
+                    </label>
+                    <label>
+                        <input type="radio" name="result" value="refused">
+                        Не записался
+                    </label>
+                    <label>
+                        <input type="radio" name="result" value="thinking">
+                        Нужно подумать
+                    </label>
+                </div>
+
+                
+                <div id="refusalReasonBlock" class="hidden">
+                    <label for="refusal_reason">Причина отказа:</label>
+                    <textarea name="refusal_reason" id="refusal_reason" class="form-control" rows="3" placeholder="Укажите причину отказа..."></textarea>
+                </div>
+
+                
+                <div id="scheduleBlock" class="hidden">
+                    <h4>Назначить первое занятие сейчас?</h4>
+                    <div class="radio-group">
+                        <label>
+                            <input type="radio" name="schedule_option" value="now">
+                            Да, назначить
+                        </label>
+                        <label>
+                            <input type="radio" name="schedule_option" value="later">
+                            Позже
+                        </label>
+                    </div>
+                    <div id="scheduleNowBlock" class="hidden">
+                        <label for="lesson_date">Дата занятия:</label>
+                        <input type="date" name="lesson_date" id="lesson_date" class="form-control">
+                        <label for="lesson_time" style="margin-top: 10px;">Время занятия:</label>
+                        <input type="time" name="lesson_time" id="lesson_time" class="form-control">
+                    </div>
+                </div>
+            </div>
+
+            
+            <div id="absentBlock" class="form-group hidden">
+                <h3>2. Причина отсутствия</h3>
+                <textarea name="absence_reason" id="absence_reason" class="form-control" rows="3" placeholder="Укажите причину неявки ученика..."></textarea>
+            </div>
+
+            
+            <div class="form-group">
+                <h3>Заметки (дополнительная информация)</h3>
+                <textarea name="notes" id="notes" class="form-control" rows="3" placeholder="Любые дополнительные комментарии..."></textarea>
+            </div>
+
+            <button type="submit" class="btn" id="submitBtn">Сохранить результат</button>
+        </form>
+
+        <a href="{{ url_for('repetitor_trial_lessons') }}" class="btn btn-secondary">← Назад</a>
+    </div>
+
+    <script>
+        
+        const attendanceRadios = document.querySelectorAll('input[name="attendance"]');
+        const resultRadios = document.querySelectorAll('input[name="result"]');
+        const scheduleRadios = document.querySelectorAll('input[name="schedule_option"]');
+
+        const presentBlock = document.getElementById('presentBlock');
+        const absentBlock = document.getElementById('absentBlock');
+        const refusalReasonBlock = document.getElementById('refusalReasonBlock');
+        const scheduleBlock = document.getElementById('scheduleBlock');
+        const scheduleNowBlock = document.getElementById('scheduleNowBlock');
+
+        
+        attendanceRadios.forEach(radio => {
+            radio.addEventListener('change', function() {
+                if (this.value === 'present') {
+                    presentBlock.classList.remove('hidden');
+                    absentBlock.classList.add('hidden');
+                    
+                    document.getElementById('absence_reason').value = '';
+                } else {
+                    presentBlock.classList.add('hidden');
+                    absentBlock.classList.remove('hidden');
+                    
+                    resultRadios.forEach(r => r.checked = false);
+                    scheduleRadios.forEach(r => r.checked = false);
+                    refusalReasonBlock.classList.add('hidden');
+                    scheduleBlock.classList.add('hidden');
+                    scheduleNowBlock.classList.add('hidden');
+                    document.getElementById('refusal_reason').value = '';
+                    document.getElementById('lesson_date').value = '';
+                    document.getElementById('lesson_time').value = '';
+                }
+            });
+        });
+
+        
+        resultRadios.forEach(radio => {
+            radio.addEventListener('change', function() {
+                
+                refusalReasonBlock.classList.add('hidden');
+                scheduleBlock.classList.add('hidden');
+                scheduleNowBlock.classList.add('hidden');
+
+                if (this.value === 'refused') {
+                    refusalReasonBlock.classList.remove('hidden');
+                }
+                if (this.value === 'enrolled') {
+                    scheduleBlock.classList.remove('hidden');
+                }
+            });
+        });
+
+        
+        scheduleRadios.forEach(radio => {
+            radio.addEventListener('change', function() {
+                if (this.value === 'now') {
+                    scheduleNowBlock.classList.remove('hidden');
+                    
+                    const today = new Date().toISOString().split('T')[0];
+                    document.getElementById('lesson_date').min = today;
+                } else {
+                    scheduleNowBlock.classList.add('hidden');
+                    document.getElementById('lesson_date').value = '';
+                    document.getElementById('lesson_time').value = '';
+                }
+            });
+        });
+
+        
+        document.getElementById('resultForm').addEventListener('submit', function(e) {
+            const attendance = document.querySelector('input[name="attendance"]:checked');
+            if (!attendance) {
+                e.preventDefault();
+                alert('Пожалуйста, укажите, было проведено занятие или нет.');
+                return;
+            }
+
+            if (attendance.value === 'present') {
+                const result = document.querySelector('input[name="result"]:checked');
+                if (!result) {
+                    e.preventDefault();
+                    alert('Пожалуйста, выберите результат занятия.');
+                    return;
+                }
+
+                
+                
+                if (result.value === 'enrolled') {
+                    const scheduleOption = document.querySelector('input[name="schedule_option"]:checked');
+                    if (!scheduleOption) {
+                        e.preventDefault();
+                        alert('Пожалуйста, укажите, назначать расписание сейчас или позже.');
+                        return;
+                    }
+                    if (scheduleOption.value === 'now') {
+                        const date = document.getElementById('lesson_date').value;
+                        const time = document.getElementById('lesson_time').value;
+                        if (!date || !time) {
+                            e.preventDefault();
+                            alert('Пожалуйста, укажите дату и время первого занятия.');
+                            return;
+                        }
+                    }
+                }
+            }
+        });
+    </script>
+{% endblock %}

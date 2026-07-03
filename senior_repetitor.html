@@ -1,0 +1,43 @@
+{% extends "base.html" %}
+{% block content %}
+<h1>👨‍🏫 Панель старшего репетитора</h1>
+
+<div class="actions-grid">
+    <a href="{{ url_for('repetitor_trial_lessons') }}" class="action-card">
+        <div class="card-title">🎯 Пробные занятия</div>
+        <div class="card-desc">Назначение дат и отметка результатов</div>
+    </a>
+    <a href="{{ url_for('repetitor_regular_students_manage') }}" class="action-card">
+        <div class="card-title">👥 Ученики</div>
+        <div class="card-desc">Управление расписанием постоянных учеников</div>
+    </a>
+    <a href="{{ url_for('repetitor_regular_students') }}" class="action-card">
+        <div class="card-title">📋 Постоянные занятия</div>
+        <div class="card-desc">Список учеников на регулярных занятиях</div>
+    </a>
+    <a href="{{ url_for('repetitor_schedule') }}" class="action-card">
+        <div class="card-title">📅 Расписание</div>
+        <div class="card-desc">Текущее и постоянное расписание занятий</div>
+    </a>
+    <a href="{{ url_for('repetitor_salary') }}" class="action-card" style="border-color:#28a745;">
+        <div class="card-title" style="color:#28a745;">💰 Моя зарплата</div>
+        <div class="card-desc">Начисления, ставка и история выплат</div>
+    </a>
+    <a href="{{ url_for('senior_repetitor_stats') }}" class="action-card" style="border-color:#007bff;">
+        <div class="card-title" style="color:#007bff;">📊 Статистика</div>
+        <div class="card-desc">Таблицы статистики работы репетиторов</div>
+    </a>
+    <a href="{{ url_for('senior_repetitor_kosyaki') }}" class="action-card" style="border-color:#dc3545;">
+        <div class="card-title" style="color:#dc3545;">⚠️ Косяки</div>
+        <div class="card-desc">Зафиксировать нарушение или проблему репетитора</div>
+    </a>
+    <a href="{{ url_for('senior_repetitor_teacher_report') }}" class="action-card" style="border-color:#6f42c1;">
+        <div class="card-title" style="color:#6f42c1;">📝 Отчёт о преподавателе</div>
+        <div class="card-desc">Оценка работы репетитора за период (неделя/месяц)</div>
+    </a>
+</div>
+
+<div class="page-footer">
+    <a href="{{ url_for('logout') }}" class="btn btn-secondary">Выйти из системы</a>
+</div>
+{% endblock %}

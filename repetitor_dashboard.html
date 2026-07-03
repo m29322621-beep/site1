@@ -1,0 +1,23 @@
+
+{% extends "base.html" %}
+{% block content %}
+<h2>Мои ученики</h2>
+
+{% if students %}
+<table border="1" style="margin:auto;">
+    <tr><th>ФИО ученика</th><th>Предмет</th><th>Менеджер</th><th>Дата записи</th></tr>
+    {% for s in students %}
+    <tr>
+        <td>{{ s[0] }}</td>
+        <td>{{ s[1] }}</td>
+        <td>{{ s[2] }}</td>
+        <td>{{ s[3] }}</td>
+    </tr>
+    {% endfor %}
+</table>
+{% else %}
+<p>У вас пока нет закреплённых учеников.</p>
+{% endif %}
+
+<p><a href="{{ url_for('repetitor') }}">Назад</a></p>
+{% endblock %}

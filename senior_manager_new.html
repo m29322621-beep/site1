@@ -1,0 +1,33 @@
+{% extends "base.html" %}
+{% block content %}
+<h1>Новые записи</h1>
+
+    <form method="POST">
+        <button type="submit" name="clear" value="1">Отметить все как просмотренные</button>
+    </form>
+
+    {% if records %}
+        <table class="data-table">
+            <tr>
+                <th>ID</th>
+                <th>Менеджер</th>
+                <th>Ученик</th>
+                <th>Предмет</th>
+                <th>Дата отправки</th>
+            </tr>
+            {% for r in records %}
+            <tr>
+                <td>{{ r[0] }}</td>
+                <td>{{ r[1] }}</td>
+                <td>{{ r[2] }}</td>
+                <td>{{ r[3] }}</td>
+                <td>{{ r[4] }}</td>
+            </tr>
+            {% endfor %}
+        </table>
+    {% else %}
+        <p>Нет новых записей.</p>
+    {% endif %}
+
+    <a href="{{ url_for('senior_manager') }}">Назад</a>
+{% endblock %}

@@ -1,0 +1,217 @@
+{% extends "base.html" %}
+{% block content %}
+<h2 style="text-align: center;">Все записи учеников</h2>
+
+<style>
+    .excel-table {
+        width: auto;
+        border-collapse: collapse;
+        margin: 20px auto;
+        font-size: 14px;
+        text-align: left;
+        min-width: 800px;
+        border: 2px solid #000;
+    }
+    .excel-table th,
+    .excel-table td {
+        border: 1px solid #333;
+        padding: 6px 10px;
+        vertical-align: top;
+    }
+    .excel-table th {
+        background-color: #f2f2f2;
+        font-weight: bold;
+        white-space: nowrap;
+        color: #000;
+    }
+    .excel-table tr:nth-child(even) {
+        background-color: #f9f9f9;
+    }
+    .excel-table tr:hover {
+        background-color: #f1f1f1;
+    }
+    .table-container {
+        display: flex;
+        justify-content: center;
+        width: 100%;
+        overflow-x: auto;
+    }
+    .additional-info {
+        max-width: 200px;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+    .additional-info.full {
+        max-width: none;
+        white-space: normal;
+        word-wrap: break-word;
+    }
+    .show-more-btn {
+        background: none;
+        border: none;
+        color: #007bff;
+        cursor: pointer;
+        font-size: 11px;
+        padding: 2px 5px;
+        text-decoration: underline;
+        display: block;
+        margin-top: 3px;
+    }
+    .show-more-btn:hover {
+        color: #0056b3;
+    }
+    .btn-clear {
+        padding: 8px 16px;
+        background-color: #dc3545;
+        color: white;
+        border: none;
+        border-radius: 4px;
+        cursor: pointer;
+        font-size: 14px;
+    }
+    .btn-clear:hover {
+        background-color: #c82333;
+    }
+    .no-data {
+        text-align: center;
+        padding: 40px;
+        color: #666;
+        font-style: italic;
+    }
+    .back-link {
+        display: inline-block;
+        margin-top: 15px;
+        padding: 8px 16px;
+        border: 1px solid #333;
+        text-decoration: none;
+        color: #333;
+        border-radius: 4px;
+    }
+    .back-link:hover {
+        background-color: #333;
+        color: white;
+    }
+    .role-badge {
+        display: inline-block;
+        padding: 3px 8px;
+        border-radius: 4px;
+        font-size: 12px;
+        font-weight: 500;
+    }
+    .role-director {
+        background-color: #dc3545;
+        color: white;
+    }
+    .role-senior-manager {
+        background-color: #17a2b8;
+        color: white;
+    }
+    .role-manager {
+        background-color: #28a745;
+        color: white;
+    }
+    .role-other {
+        background-color: #6c757d;
+        color: white;
+    }
+</style>
+
+{% if records %}
+<div class="table-container">
+    <table class="excel-table">
+        <thead>
+            <tr>
+                <th>Менеджер</th>
+                <th>Роль добавившего</th>
+                <th>ФИО ученика</th>
+                <th>Предмет</th>
+                <th>Дополнительная информация</th>
+                <th>Репетитор</th>
+                <th>Дата/время (отправки)</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for r in records %}
+            <tr>
+                <td>{{ r[0] }}</td>
+                <td>
+                    {% if r[6] == 'director' %}
+                        <span class="role-badge role-director">Директор</span>
+                    {% elif r[6] == 'senior_manager' %}
+                        <span class="role-badge role-senior-manager">Старший менеджер</span>
+                    {% elif r[6] == 'manager' %}
+                        <span class="role-badge role-manager">Менеджер</span>
+                    {% else %}
+                        <span class="role-badge role-other">Не указана</span>
+                    {% endif %}
+                </td>
+                <td>{{ r[1] }}</td>
+                <td>{{ r[2] }}</td>
+                <td>
+                    <div id="info-{{ loop.index }}" class="additional-info">
+                        {% if r[5] %}
+                            {{ r[5] }}
+                        {% else %}
+                            —
+                        {% endif %}
+                    </div>
+                    {% if r[5] and r[5]|length > 50 %}
+                    <button class="show-more-btn" onclick="toggleInfo({{ loop.index }})">Показать все</button>
+                    {% endif %}
+                </td>
+                <td>{{ r[4] if r[4] else "Не назначен" }}</td>
+                <td>{{ r[3] }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+
+
+<form method="POST" style="margin-top:15px; text-align:center;">
+    <button type="submit" name="clear" value="1" class="btn-clear" onclick="return confirm('Вы точно хотите очистить таблицу учеников?');">
+        Очистить таблицу
+    </button>
+</form>
+{% else %}
+<p style="text-align:center;">Нет записей учеников.</p>
+{% endif %}
+
+<p style="text-align:center; margin-top: 20px;">
+    <a href="{{ url_for('admin') }}" class="back-link">Назад в админ-панель</a>
+</p>
+
+<script>
+    function toggleInfo(id) {
+        const infoElement = document.getElementById('info-' + id);
+        const button = infoElement.nextElementSibling;
+
+        if (infoElement.classList.contains('full')) {
+            infoElement.classList.remove('full');
+            infoElement.style.whiteSpace = 'nowrap';
+            infoElement.style.overflow = 'hidden';
+            infoElement.style.textOverflow = 'ellipsis';
+            button.textContent = 'Показать все';
+        } else {
+            infoElement.classList.add('full');
+            infoElement.style.whiteSpace = 'normal';
+            infoElement.style.overflow = 'visible';
+            infoElement.style.textOverflow = 'clip';
+            button.textContent = 'Свернуть';
+        }
+    }
+
+    
+    document.addEventListener('DOMContentLoaded', function() {
+        const infoElements = document.querySelectorAll('.additional-info');
+        infoElements.forEach(element => {
+            if (element.textContent.trim() !== '—' && element.textContent.trim().length > 50) {
+                element.style.whiteSpace = 'nowrap';
+                element.style.overflow = 'hidden';
+                element.style.textOverflow = 'ellipsis';
+            }
+        });
+    });
+</script>
+{% endblock %}

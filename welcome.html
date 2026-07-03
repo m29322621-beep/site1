@@ -1,0 +1,8 @@
+{% extends "base.html" %}
+
+{% block content %}
+    <div class="welcome-text" onclick="window.location.href='{{ url_for('goodbye') }}'">
+        Привет, {{ session['username'] }}!, (нажми на меня)
+    </div>
+    <p><a href="{{ url_for('logout') }}">Выйти</a></p>
+{% endblock %}

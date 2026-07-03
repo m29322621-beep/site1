@@ -1,0 +1,71 @@
+{% extends "base.html" %}
+{% block content %}
+<h1>📚 Панель репетитора</h1>
+
+<div class="stats-container">
+    <div class="stat-card">
+        <div class="stat-number">{{ students|length }}</div>
+        <div class="stat-label">Постоянных учеников</div>
+    </div>
+    <div class="stat-card orange">
+        <div class="stat-number">{{ trial_count }}</div>
+        <div class="stat-label">Ожидают назначения</div>
+    </div>
+    <div class="stat-card green">
+        <div class="stat-number">{{ lessons|length }}</div>
+        <div class="stat-label">Занятий на неделе</div>
+    </div>
+</div>
+
+<div class="actions-grid">
+    <a href="{{ url_for('repetitor_trial_lessons') }}" class="action-card">
+        <div class="card-title">🎯 Пробные занятия</div>
+        <div class="card-desc">Назначение дат и отметка результатов</div>
+        {% if trial_count and trial_count > 0 %}
+            <span class="badge">{{ trial_count }}</span>
+        {% endif %}
+    </a>
+    <a href="{{ url_for('repetitor_regular_students_manage') }}" class="action-card">
+        <div class="card-title">👥 Ученики</div>
+        <div class="card-desc">Управление расписанием постоянных учеников</div>
+    </a>
+    <a href="{{ url_for('repetitor_regular_students') }}" class="action-card">
+        <div class="card-title">📋 Постоянные занятия</div>
+        <div class="card-desc">Список учеников на регулярных занятиях</div>
+    </a>
+    <a href="{{ url_for('repetitor_schedule') }}" class="action-card">
+        <div class="card-title">📅 Расписание</div>
+        <div class="card-desc">Текущее и постоянное расписание занятий</div>
+    </a>
+    <a href="{{ url_for('repetitor_salary') }}" class="action-card" style="border-color:#28a745;">
+        <div class="card-title" style="color:#28a745;">💰 Моя зарплата</div>
+        <div class="card-desc">Начисления, ставка и история выплат</div>
+    </a>
+</div>
+
+<div class="page-footer">
+    <a href="{{ url_for('logout') }}" class="btn btn-secondary">Выйти из системы</a>
+</div>
+
+<script>
+function updateTrialCounter() {
+    fetch('/api/trial_lessons/count')
+        .then(r => r.json())
+        .then(data => {
+            const badge = document.querySelector('.badge');
+            const trialLink = document.querySelector('a[href*="trial_lessons"]');
+            if (data.count > 0) {
+                if (badge) badge.textContent = data.count;
+                else if (trialLink) {
+                    const nb = document.createElement('span');
+                    nb.className = 'badge';
+                    nb.textContent = data.count;
+                    trialLink.appendChild(nb);
+                }
+            } else if (badge) badge.remove();
+        });
+}
+setInterval(updateTrialCounter, 30000);
+document.addEventListener('DOMContentLoaded', updateTrialCounter);
+</script>
+{% endblock %}

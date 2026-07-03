@@ -1,0 +1,211 @@
+{% extends "base.html" %}
+{% block content %}
+
+<style>
+        body {
+            font-family: 'Segoe UI', Arial, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background-color: #f8f9fa;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        h1 {
+            color: #333;
+            margin-bottom: 20px;
+            padding-bottom: 10px;
+            border-bottom: 2px solid #eaeaea;
+        }
+        .excel-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 20px 0;
+            font-size: 14px;
+            text-align: left;
+            border: 2px solid #000;
+            background: white;
+        }
+        .excel-table th,
+        .excel-table td {
+            border: 1px solid #333;
+            padding: 8px 12px;
+            vertical-align: top;
+        }
+        .excel-table th {
+            background-color: #f2f2f2;
+            font-weight: bold;
+            position: sticky;
+            top: 0;
+            z-index: 10;
+            color: #000;
+            white-space: nowrap;
+        }
+        .excel-table tr:nth-child(even) {
+            background-color: #f9f9f9;
+        }
+        .excel-table tr:hover {
+            background-color: #f1f1f1;
+        }
+        .controls {
+            display: flex;
+            gap: 10px;
+            margin: 15px 0;
+            flex-wrap: wrap;
+        }
+        .btn {
+            padding: 10px 14px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-weight: 600;
+        }
+        .btn-send {
+            background: #28a745;
+            color: white;
+        }
+        .btn-clear {
+            background: #dc3545;
+            color: white;
+        }
+        .btn-delete {
+            background: #dc3545;
+            color: white;
+            padding: 6px 10px;
+            font-weight: 600;
+            border-radius: 4px;
+            border: none;
+            cursor: pointer;
+        }
+        .no-data {
+            text-align: center;
+            padding: 40px;
+            color: #666;
+            font-style: italic;
+            background: white;
+            border-radius: 8px;
+            border: 1px solid #e0e0e0;
+            margin-top: 20px;
+        }
+        .back-link {
+            display: inline-block;
+            margin-top: 20px;
+            padding: 10px 20px;
+            background-color: white;
+            border: 1px solid #6c757d;
+            border-radius: 6px;
+            color: #6c757d;
+            text-decoration: none;
+            font-weight: 500;
+        }
+        .back-link:hover {
+            background-color: #6c757d;
+            color: white;
+        }
+        .additional-info {
+            max-width: 220px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+        .additional-info.full {
+            max-width: none;
+            white-space: normal;
+            word-wrap: break-word;
+        }
+        .show-more-btn {
+            background: none;
+            border: none;
+            color: #007bff;
+            cursor: pointer;
+            font-size: 12px;
+            padding: 0;
+            text-decoration: underline;
+            margin-top: 4px;
+        }
+        .show-more-btn:hover {
+            color: #0056b3;
+        }
+        .flash-box {
+            background: #fff3cd;
+            padding: 10px;
+            margin: 10px 0 20px;
+            border-radius: 4px;
+        }
+    </style>
+<div class="container">
+    <h1>Мои записи</h1>
+
+    
+
+    <div class="controls">
+        <form method="POST" onsubmit="return confirm('Отправить все данные в общую таблицу?')">
+            <button type="submit" name="send" value="1" class="btn btn-send">Отправить данные</button>
+        </form>
+        <form method="POST" onsubmit="return confirm('Вы точно хотите очистить таблицу?')">
+            <button type="submit" name="clear" value="1" class="btn btn-clear">Очистить таблицу</button>
+        </form>
+    </div>
+
+    {% if records %}
+        <table class="excel-table">
+            <thead>
+                <tr>
+                    <th>#</th>
+                    <th>ФИО ученика</th>
+                    <th>Предмет</th>
+                    <th>Дополнительная информация</th>
+                    <th>Дата создания</th>
+                    <th>Действие</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for r in records %}
+                    <tr>
+                        <td>{{ loop.index }}</td>
+                        <td>{{ r[1] }}</td>
+                        <td>{{ r[2] }}</td>
+                        <td>
+                            <div id="info-{{ r[0] }}" class="additional-info">
+                                {{ r[3] if r[3] else '—' }}
+                            </div>
+                            {% if r[3] and r[3]|length > 50 %}
+                                <button type="button" class="show-more-btn" onclick="toggleInfo({{ r[0] }})">Показать все</button>
+                            {% endif %}
+                        </td>
+                        <td>{{ r[4] }}</td>
+                        <td>
+                            <form method="POST" onsubmit="return confirm('Удалить эту запись?')">
+                                <button type="submit" name="delete" value="{{ r[0] }}" class="btn-delete">Удалить</button>
+                            </form>
+                        </td>
+                    </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    {% else %}
+        <div class="no-data">Записей пока нет</div>
+    {% endif %}
+
+    <div style="text-align:center;">
+        <a href="{% if session.get('role') == 'director' %}{{ url_for('director') }}{% else %}{{ url_for('senior_manager') }}{% endif %}" class="btn btn-secondary">← Назад</a>
+    </div>
+</div>
+
+<script>
+    function toggleInfo(id) {
+        const infoElement = document.getElementById('info-' + id);
+        const btn = infoElement.parentElement.querySelector('.show-more-btn');
+        if (!btn) return;
+
+        if (infoElement.classList.contains('full')) {
+            infoElement.classList.remove('full');
+            btn.textContent = 'Показать все';
+        } else {
+            infoElement.classList.add('full');
+            btn.textContent = 'Свернуть';
+        }
+    }
+</script>
+{% endblock %}

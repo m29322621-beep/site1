@@ -1,0 +1,277 @@
+{% extends "base.html" %}
+{% block content %}
+
+<style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+        }
+        h1 {
+            text-align: center;
+        }
+        h2 {
+            margin-top: 40px;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+        }
+        th, td {
+            border: 1px solid #ddd;
+            padding: 8px;
+            text-align: left;
+        }
+        th {
+            background-color: #f2f2f2;
+        }
+        select, button {
+            padding: 5px;
+        }
+        .no-data {
+            margin-top: 20px;
+            font-style: italic;
+            color: #666;
+        }
+        .back-link {
+            display: inline-block;
+            margin-top: 30px;
+            text-decoration: none;
+            color: #007bff;
+        }
+        .back-link:hover {
+            text-decoration: underline;
+        }
+
+        .top-actions {
+            display: flex;
+            justify-content: flex-end;
+            align-items: center;
+            gap: 12px;
+            margin: 12px 0 18px 0;
+        }
+        .assign-btn {
+            display: inline-block;
+            padding: 10px 18px;
+            border-radius: 6px;
+            border: 1px solid #0d6efd;
+            background: #0d6efd;
+            color: white;
+            text-decoration: none;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 600;
+        }
+        .assign-btn:hover {
+            background: #0b5ed7;
+            border-color: #0b5ed7;
+        }
+        .assign-panel {
+            display: none;
+            background: white;
+            border: 1px solid #e0e0e0;
+            border-radius: 8px;
+            padding: 18px;
+            margin: 0 0 18px 0;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+        }
+        .assign-panel.visible {
+            display: block;
+        }
+        .assign-form-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr auto;
+            gap: 12px;
+            align-items: end;
+        }
+        .assign-panel label {
+            display: block;
+            font-size: 13px;
+            color: #666;
+            margin-bottom: 6px;
+        }
+        .assign-panel select {
+            width: 100%;
+            padding: 10px 12px;
+            border-radius: 6px;
+            border: 1px solid #ced4da;
+            background: white;
+            font-size: 14px;
+        }
+        .assign-submit {
+            padding: 10px 18px;
+            border-radius: 6px;
+            border: 1px solid #198754;
+            background: #198754;
+            color: white;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 600;
+            height: 42px;
+        }
+        .assign-submit:hover {
+            background: #157347;
+            border-color: #157347;
+        }
+        .assign-cancel {
+            margin-left: 10px;
+            padding: 10px 18px;
+            border-radius: 6px;
+            border: 1px solid #6c757d;
+            background: white;
+            color: #6c757d;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 600;
+            height: 42px;
+        }
+    </style>
+<h1>Управление пробными занятиями</h1>
+
+    <div class="top-actions">
+        <button type="button" class="assign-btn" id="toggleAssignPanelSenior">
+            Назначить репетитора
+        </button>
+    </div>
+
+    <div class="assign-panel" id="assignPanelSenior">
+        <form method="POST" id="seniorAssignForm" action="{{ url_for('senior_manager_reassign_trial', trial_id=0) }}">
+            <div class="assign-form-row">
+                <div>
+                    <label for="senior_trial_id">Ученик (нераспределенное пробное)</label>
+                    <select name="trial_id" id="senior_trial_id" required>
+                        <option value="">-- Выберите ученика/пробное --</option>
+                        {% for trial in unassigned_trials %}
+                            <option value="{{ trial[0] }}">{{ trial[1] }} ({{ trial[2] }})</option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <div>
+                    <label for="senior_new_repetitor">Репетитор</label>
+                    <select name="new_repetitor" id="senior_new_repetitor" required>
+                        <option value="">-- Выберите репетитора --</option>
+                        {% for repetitor in repetitors %}
+                            <option value="{{ repetitor[0] }}">{{ repetitor[0] }} ({{ repetitor[1] }})</option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <div>
+                    <button type="submit" class="assign-submit">Назначить</button>
+                    <button type="button" class="assign-cancel" id="closeAssignPanelSenior">Закрыть</button>
+                </div>
+            </div>
+        </form>
+    </div>
+
+    <h2>Нераспределённые пробные занятия</h2>
+    {% if unassigned_trials %}
+        <table>
+            <tr>
+                <th>Ученик</th>
+                <th>Предмет</th>
+                <th>Менеджер</th>
+                <th>Дата и время добавления</th>
+            </tr>
+            {% for trial in unassigned_trials %}
+            <tr>
+                <td>{{ trial[1] }}</td>
+                <td>{{ trial[2] }}</td>
+                <td>{{ trial[3] }}</td>
+                <td>
+                    {% if trial[6] %}
+                        {{ trial[6] }}
+                    {% else %}
+                        не указано
+                    {% endif %}
+                </td>
+            </tr>
+            {% endfor %}
+        </table>
+    {% else %}
+        <div class="no-data">Нет нераспределённых пробных занятий</div>
+    {% endif %}
+
+    <h2>Распределённые пробные занятия</h2>
+    {% if scheduled_trials %}
+        <table>
+            <tr>
+                <th>Ученик</th>
+                <th>Предмет</th>
+                <th>Менеджер</th>
+                <th>Дата и время добавления</th>
+                <th>Репетитор</th>
+            </tr>
+            {% for trial in scheduled_trials %}
+            <tr>
+                <td>{{ trial[1] }}</td>
+                <td>{{ trial[2] }}</td>
+                <td>{{ trial[3] }}</td>
+                <td>
+                    {% if trial[7] %}
+                        {{ trial[7] }}
+                    {% else %}
+                        не указано
+                    {% endif %}
+                </td>
+                <td>{{ trial[4] }}</td>
+            </tr>
+            {% endfor %}
+        </table>
+    {% else %}
+        <div class="no-data">Нет распределённых пробных занятий</div>
+    {% endif %}
+
+    <h2>Список репетиторов</h2>
+    {% if repetitors %}
+        <table>
+            <tr>
+                <th>Репетитор</th>
+                <th>Предмет</th>
+            </tr>
+            {% for repetitor in repetitors %}
+            <tr>
+                <td>{{ repetitor[0] }}</td>
+                <td>{{ repetitor[1] }}</td>
+            </tr>
+            {% endfor %}
+        </table>
+    {% else %}
+        <div class="no-data">Нет репетиторов в системе</div>
+    {% endif %}
+
+    <a href="{% if session.get('role') == 'director' %}{{ url_for('director') }}{% else %}{{ url_for('senior_manager') }}{% endif %}" class="btn btn-secondary">← Назад</a>
+
+<script>
+    (function() {
+        const btn = document.getElementById('toggleAssignPanelSenior');
+        const panel = document.getElementById('assignPanelSenior');
+        const closeBtn = document.getElementById('closeAssignPanelSenior');
+        const form = document.getElementById('seniorAssignForm');
+        const trialSelect = document.getElementById('senior_trial_id');
+
+        if (btn && panel) {
+            btn.addEventListener('click', function() {
+                panel.classList.toggle('visible');
+            });
+        }
+        if (closeBtn && panel) {
+            closeBtn.addEventListener('click', function() {
+                panel.classList.remove('visible');
+            });
+        }
+        if (form && trialSelect) {
+            form.addEventListener('submit', function(e) {
+                const tid = trialSelect.value;
+                if (!tid) {
+                    e.preventDefault();
+                    return;
+                }
+                const baseUrl = "{{ url_for('senior_manager_reassign_trial', trial_id=0) }}";
+                form.action = baseUrl.replace(/0\s*$/, tid);
+            });
+        }
+    })();
+</script>
+{% endblock %}

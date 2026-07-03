@@ -1,0 +1,122 @@
+{% extends "base.html" %}
+{% block content %}
+<h1>📝 Отчёт о преподавателе</h1>
+
+<div class="form-card">
+    <h2 style="margin-top:0; border:none; padding:0; font-size:18px;">Новый отчёт</h2>
+    <form method="POST">
+        <div class="form-group">
+            <label>Преподаватель <span class="required-star">*</span></label>
+            <select name="teacher_username" required>
+                <option value="">— Выберите преподавателя —</option>
+                {% for rep in repetitors %}
+                <option value="{{ rep[0] }}">{{ rep[1] or rep[0] }} ({{ rep[0] }})</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="form-group">
+            <label>Период <span class="required-star">*</span></label>
+            <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-top:6px;">
+                <label style="display:flex; align-items:center; gap:8px; padding:10px 12px; border:2px solid #e0e0e0; border-radius:6px; cursor:pointer; font-weight:400;" id="lbl_week">
+                    <input type="radio" name="period" value="week" required style="display:none;" id="rad_week">
+                    📅 Неделя
+                </label>
+                <label style="display:flex; align-items:center; gap:8px; padding:10px 12px; border:2px solid #e0e0e0; border-radius:6px; cursor:pointer; font-weight:400;" id="lbl_month">
+                    <input type="radio" name="period" value="month" style="display:none;" id="rad_month">
+                    📆 Месяц
+                </label>
+            </div>
+        </div>
+        <div class="form-group">
+            <label>Оценка работы (1–10) <span class="required-star">*</span></label>
+            <div style="display:flex; gap:6px; flex-wrap:wrap; margin-top:6px;" id="ratingBtns">
+                {% for i in range(1, 11) %}
+                <label style="width:42px; height:42px; display:flex; align-items:center; justify-content:center; border:2px solid #e0e0e0; border-radius:6px; cursor:pointer; font-weight:600; transition:all 0.15s;" class="rating-btn" data-val="{{ i }}">
+                    <input type="radio" name="rating" value="{{ i }}" style="display:none;">
+                    {{ i }}
+                </label>
+                {% endfor %}
+            </div>
+        </div>
+        <div class="form-group">
+            <label>Отчёт о проделанной работе <span class="required-star">*</span></label>
+            <textarea name="report_text" rows="5" placeholder="Опишите работу преподавателя за указанный период..." required></textarea>
+        </div>
+        <button type="submit" class="btn btn-primary btn-block">💾 Сохранить отчёт</button>
+    </form>
+</div>
+
+{% if reports %}
+<h2>Сохранённые отчёты</h2>
+<table class="data-table">
+    <thead>
+        <tr><th>Дата</th><th>Преподаватель</th><th>Период</th><th>Оценка</th><th>Отчёт</th></tr>
+    </thead>
+    <tbody>
+        {% for r in reports %}
+        <tr>
+            <td>{{ r[5][:10] }}</td>
+            <td>{{ r[1] or '—' }}</td>
+            <td>{{ 'Неделя' if r[2] == 'week' else 'Месяц' }}</td>
+            <td>
+                <span style="display:inline-block; background:{% if r[4] >= 8 %}#28a745{% elif r[4] >= 5 %}#ffc107{% else %}#dc3545{% endif %}; color:white; font-weight:700; padding:3px 10px; border-radius:20px; font-size:14px;">{{ r[4] }}/10</span>
+            </td>
+            <td style="max-width:320px;">
+                <span id="rt-{{ loop.index }}" style="display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden;">{{ r[3] }}</span>
+                {% if r[3]|length > 80 %}
+                <button class="btn btn-secondary btn-sm" style="margin-top:4px;" onclick="toggleText('rt-{{ loop.index }}', this)">Показать</button>
+                {% endif %}
+            </td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+{% else %}
+<p style="color:#666; text-align:center; padding:30px;">Отчётов пока нет.</p>
+{% endif %}
+
+<div class="page-footer">
+    <a href="{{ url_for('senior_repetitor') }}" class="btn btn-secondary">← Назад</a>
+</div>
+
+<script>
+document.querySelectorAll('.rating-btn').forEach(function(lbl) {
+    lbl.addEventListener('click', function() {
+        document.querySelectorAll('.rating-btn').forEach(function(l) {
+            l.style.borderColor = '#e0e0e0';
+            l.style.background = '';
+            l.style.color = '#333';
+        });
+        lbl.style.borderColor = '#007bff';
+        lbl.style.background = '#007bff';
+        lbl.style.color = 'white';
+        lbl.querySelector('input').checked = true;
+    });
+});
+['week','month'].forEach(function(v) {
+    document.getElementById('rad_' + v).addEventListener('change', function() {
+        document.getElementById('lbl_week').style.borderColor = '#e0e0e0';
+        document.getElementById('lbl_month').style.borderColor = '#e0e0e0';
+        document.getElementById('lbl_' + v).style.borderColor = '#007bff';
+    });
+    document.getElementById('lbl_' + v).addEventListener('click', function() {
+        document.getElementById('rad_' + v).checked = true;
+        document.getElementById('lbl_week').style.borderColor = '#e0e0e0';
+        document.getElementById('lbl_month').style.borderColor = '#e0e0e0';
+        this.style.borderColor = '#007bff';
+    });
+});
+function toggleText(id, btn) {
+    var el = document.getElementById(id);
+    if (el.style.webkitLineClamp === 'unset' || el.style.display === 'block') {
+        el.style.display = '-webkit-box';
+        el.style.webkitLineClamp = '2';
+        btn.textContent = 'Показать';
+    } else {
+        el.style.display = 'block';
+        el.style.webkitLineClamp = 'unset';
+        btn.textContent = 'Свернуть';
+    }
+}
+</script>
+{% endblock %}

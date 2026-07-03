@@ -1,0 +1,157 @@
+{% extends "base.html" %}
+{% block content %}
+
+<style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+        }
+        h1 {
+            color: #333;
+        }
+        .stats-container {
+            margin: 20px 0;
+        }
+        .manager-card {
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            padding: 15px;
+            margin-bottom: 15px;
+            background-color: #f9f9f9;
+        }
+        .manager-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+        .manager-name {
+            font-weight: bold;
+            font-size: 18px;
+            color: #333;
+        }
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+            gap: 15px;
+            margin-top: 20px;
+        }
+        .stat-item {
+            background: white;
+            border: 1px solid #e0e0e0;
+            border-radius: 5px;
+            padding: 10px;
+        }
+        .stat-label {
+            font-size: 12px;
+            color: #666;
+            margin-bottom: 5px;
+        }
+        .stat-value {
+            font-size: 18px;
+            font-weight: bold;
+            color: #007bff;
+        }
+        .conversion-high {
+            color: #28a745;
+        }
+        .conversion-medium {
+            color: #ffc107;
+        }
+        .conversion-low {
+            color: #dc3545;
+        }
+        .subject-list {
+            margin-top: 10px;
+        }
+        .subject-item {
+            display: flex;
+            justify-content: space-between;
+            padding: 5px 0;
+            border-bottom: 1px solid #eee;
+        }
+        .back-link {
+            display: inline-block;
+            margin-top: 20px;
+            padding: 10px 15px;
+            background-color: #007bff;
+            color: white;
+            text-decoration: none;
+            border-radius: 4px;
+        }
+        .back-link:hover {
+            background-color: #0056b3;
+        }
+        .no-data {
+            color: #777;
+            font-style: italic;
+            margin: 20px 0;
+        }
+    </style>
+<h1>Статистика работы менеджеров</h1>
+
+    <div class="stats-container">
+        <p>Всего менеджеров: {{ total_managers }}</p>
+    </div>
+
+    {% if detailed_stats %}
+    <div class="stats-grid">
+        {% for manager in detailed_stats %}
+        <div class="manager-card">
+            <div class="manager-header">
+                <div class="manager-name">{{ manager.manager }}</div>
+                <div class="stat-value">{{ manager.total_records }} записей</div>
+            </div>
+
+            <div class="stat-item">
+                <div class="stat-label">Конверсия:</div>
+                <div class="stat-value
+                    {% if manager.conversion_rate >= 30 %}conversion-high
+                    {% elif manager.conversion_rate >= 15 %}conversion-medium
+                    {% else %}conversion-low
+                    {% endif %}">
+                    {{ "%.1f"|format(manager.conversion_rate) }}%
+                </div>
+            </div>
+
+            <div class="stat-item">
+                <div class="stat-label">Записались на постоянное:</div>
+                <div class="stat-value">{{ manager.enrolled_count }}</div>
+            </div>
+
+            <div class="stat-item">
+                <div class="stat-label">Количество предметов:</div>
+                <div class="stat-value">{{ manager.subjects_count }}</div>
+            </div>
+
+            <div class="stat-item">
+                <div class="stat-label">Привязка к репетитору:</div>
+                <div class="stat-value" style="font-size: 14px;">
+                    {% if manager.bound_repetitor %}
+                        {{ manager.bound_repetitor }}
+                    {% else %}
+                        <span style="color: #6c757d;">Не привязан</span>
+                    {% endif %}
+                </div>
+            </div>
+
+            {% if manager.subject_stats %}
+            <div class="subject-list">
+                <div class="stat-label">По предметам:</div>
+                {% for subject in manager.subject_stats %}
+                <div class="subject-item">
+                    <span>{{ subject[0] }}</span>
+                    <span>{{ subject[1] }}</span>
+                </div>
+                {% endfor %}
+            </div>
+            {% endif %}
+        </div>
+        {% endfor %}
+    </div>
+    {% else %}
+    <div class="no-data">Нет данных для отображения</div>
+    {% endif %}
+
+    <a href="{% if session.get('role') == 'director' %}{{ url_for('director') }}{% else %}{{ url_for('senior_manager') }}{% endif %}" class="btn btn-secondary">← Назад</a>
+{% endblock %}

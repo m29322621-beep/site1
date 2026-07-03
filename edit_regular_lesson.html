@@ -1,0 +1,19 @@
+{% extends "base.html" %}
+{% block content %}
+<h2>Редактирование занятия</h2>
+
+<p><strong>Ученик:</strong> {{ lesson[1] }}</p>
+<p><strong>Предмет:</strong> {{ lesson[4] }}</p>
+
+<form method="POST">
+    <label for="lesson_date">Дата занятия:</label>
+    <input type="date" name="lesson_date" id="lesson_date" value="{{ lesson[2] }}" required>
+    <br><br>
+    <label for="lesson_time">Время занятия:</label>
+    <input type="time" name="lesson_time" id="lesson_time" value="{{ lesson[3] }}" required>
+    <br><br>
+    <button type="submit">Сохранить изменения</button>
+</form>
+
+<a href="{{ url_for('repetitor_regular_students_manage') }}" class="btn btn-secondary">← Назад</a>
+{% endblock %}

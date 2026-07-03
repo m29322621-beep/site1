@@ -1,0 +1,91 @@
+{% extends "base.html" %}
+{% block content %}
+<h2>Постоянные занятия</h2>
+
+<style>
+    .excel-table {
+        width: 100%;
+        border-collapse: collapse;
+        margin: 20px 0;
+        font-size: 14px;
+        text-align: left;
+        border: 2px solid #000;
+    }
+    .excel-table th,
+    .excel-table td {
+        border: 1px solid #333;
+        padding: 8px 12px;
+        vertical-align: top;
+    }
+    .excel-table th {
+        background-color: #f2f2f2;
+        font-weight: bold;
+    }
+    .excel-table tr:nth-child(even) {
+        background-color: #f9f9f9;
+    }
+    .excel-table tr:hover {
+        background-color: #f1f1f1;
+    }
+    .no-data {
+        text-align: center;
+        padding: 40px;
+        color: #666;
+        font-style: italic;
+    }
+    .back-link {
+        display: inline-block;
+        margin-top: 20px;
+        padding: 10px 20px;
+        background-color: white;
+        border: 1px solid #6c757d;
+        border-radius: 6px;
+        color: #6c757d;
+        text-decoration: none;
+        font-weight: 500;
+    }
+    .back-link:hover {
+        background-color: #6c757d;
+        color: white;
+    }
+    .additional-info {
+        max-width: 200px;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+</style>
+
+{% if students %}
+<table class="excel-table">
+    <thead>
+        <tr>
+            <th>Ученик</th>
+            <th>Предмет</th>
+            <th>Менеджер</th>
+            <th>Дата записи</th>
+            <th>Доп. информация</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for student in students %}
+        <tr>
+            <td>{{ student[0] }}</td>
+            <td>{{ student[1] }}</td>
+            <td>{{ student[2] }}</td>
+            <td>{{ student[3] }}</td>
+            <td class="additional-info">{{ student[4] if student[4] else '—' }}</td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+{% else %}
+<div class="no-data">
+    <p>У вас пока нет постоянных учеников.</p>
+</div>
+{% endif %}
+
+<div style="text-align: center;">
+    <a href="{% if session.get('role') == 'senior_repetitor' %}{{ url_for('senior_repetitor') }}{% else %}{{ url_for('repetitor_main') }}{% endif %}" class="btn btn-secondary">← Назад</a>
+</div>
+{% endblock %}

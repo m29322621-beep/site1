@@ -1,0 +1,79 @@
+{% extends "base.html" %}
+{% block content %}
+<h1>📋 Таблица ваших записей</h1>
+
+{% if records %}
+<table class="data-table">
+    <thead>
+        <tr>
+            <th>ФИО ученика</th>
+            <th>Предмет</th>
+            <th>Дополнительная информация</th>
+            <th>Действие</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for r in records %}
+        <tr>
+            <td>{{ r[1] }}</td>
+            <td>{{ r[2] }}</td>
+            <td>
+                {% if r[3] %}
+                    <span id="info-{{ r[0] }}" style="display:block; max-width:220px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">
+                        {{ r[3] }}
+                    </span>
+                    {% if r[3]|length > 50 %}
+                    <button class="btn btn-secondary btn-sm" onclick="toggleInfo({{ r[0] }}, this)" style="margin-top:4px;">Показать всё</button>
+                    {% endif %}
+                {% else %}—{% endif %}
+            </td>
+            <td>
+                <form method="POST" style="display:inline;">
+                    <input type="hidden" name="delete" value="{{ r[0] }}">
+                    <button type="submit" class="btn btn-danger btn-sm"
+                            onclick="return confirm('Удалить запись?')">Удалить</button>
+                </form>
+            </td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+
+<div style="display:flex; gap:12px; justify-content:center; margin-top:20px; flex-wrap:wrap;">
+    <form method="POST">
+        <button type="submit" name="clear" value="1" class="btn btn-secondary"
+                onclick="return confirm('Очистить всю таблицу?')">🗑 Очистить таблицу</button>
+    </form>
+    <form method="POST">
+        <button type="submit" name="send" value="1" class="btn btn-success"
+                onclick="return confirm('Отправить все данные в базу?')">📤 Отправить данные</button>
+    </form>
+</div>
+{% else %}
+<div style="text-align:center; padding:50px 20px; color:#999;">
+    <div style="font-size:48px; margin-bottom:12px;">📭</div>
+    <p>Записей пока нет. Добавьте новую запись.</p>
+</div>
+{% endif %}
+
+<div class="page-footer">
+    <a href="{{ url_for('manager') }}" class="btn btn-secondary">← Назад</a>
+</div>
+
+<script>
+function toggleInfo(id, btn) {
+    const el = document.getElementById('info-' + id);
+    if (el.style.whiteSpace === 'nowrap' || !el.style.whiteSpace) {
+        el.style.whiteSpace = 'normal';
+        el.style.overflow = 'visible';
+        el.style.maxWidth = 'none';
+        btn.textContent = 'Свернуть';
+    } else {
+        el.style.whiteSpace = 'nowrap';
+        el.style.overflow = 'hidden';
+        el.style.maxWidth = '220px';
+        btn.textContent = 'Показать всё';
+    }
+}
+</script>
+{% endblock %}

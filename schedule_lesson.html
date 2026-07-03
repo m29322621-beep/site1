@@ -1,0 +1,77 @@
+{% extends "base.html" %}
+{% block content %}
+
+<style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 600px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        form {
+            background: #f9f9f9;
+            padding: 20px;
+            border-radius: 5px;
+        }
+        label {
+            display: block;
+            margin: 10px 0 5px;
+        }
+        select, input, button {
+            width: 100%;
+            padding: 8px;
+            margin: 5px 0;
+            box-sizing: border-box;
+        }
+        button {
+            background: #28a745;
+            color: white;
+            border: none;
+            padding: 10px;
+            cursor: pointer;
+        }
+        .back-link {
+            display: inline-block;
+            margin-top: 15px;
+            color: #007bff;
+            text-decoration: none;
+        }
+    </style>
+<h2>Назначение даты и времени занятия</h2>
+
+    <form method="POST">
+        <label for="student_name">Ученик:</label>
+        <select name="student_name" id="student_name" required>
+            <option value="">-- Выберите ученика --</option>
+            {% for student in students %}
+                <option value="{{ student[0] }}" 
+                        {% if request.args.get('student') == student[0] %}selected{% endif %}>
+                    {{ student[0] }} ({{ student[1] }})
+                </option>
+            {% endfor %}
+        </select>
+
+        <input type="hidden" name="subject" value="{{ students[0][1] if students else '' }}">
+
+        <label for="lesson_date">Дата занятия:</label>
+        <input type="date" name="lesson_date" id="lesson_date" required
+               min="2025-01-01">
+
+        <label for="lesson_time">Время занятия:</label>
+        <input type="time" name="lesson_time" id="lesson_time" required>
+
+        <button type="submit">Назначить занятие</button>
+    </form>
+
+    <a href="{% if session.get('role') == 'senior_repetitor' %}{{ url_for('senior_repetitor') }}{% else %}{{ url_for('repetitor_main') }}{% endif %}" class="btn btn-secondary">← Назад</a>
+
+    <script>
+        
+        const today = new Date();
+        const maxDate = new Date();
+        maxDate.setFullYear(today.getFullYear() + 1);
+        
+        document.getElementById('lesson_date').min = '2025-01-01';
+        document.getElementById('lesson_date').max = maxDate.toISOString().split('T')[0];
+    </script>
+{% endblock %}

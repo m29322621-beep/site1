@@ -1,0 +1,76 @@
+{% extends "base.html" %}
+{% block content %}
+<h1>💰 Моя зарплата</h1>
+
+<div class="stats-container">
+    <div class="stat-card" style="border-left: 4px solid #dc3545;">
+        <div class="stat-number" style="color:#dc3545;">{{ "%.0f"|format(unpaid) }} ₽</div>
+        <div class="stat-label">Не выплачено (долг)</div>
+    </div>
+    <div class="stat-card green">
+        <div class="stat-number">{{ "%.0f"|format(total_paid) }} ₽</div>
+        <div class="stat-label">Всего получено</div>
+    </div>
+</div>
+
+{% if rate_row %}
+<div style="background:white; border-radius:10px; padding:20px; margin:20px 0; box-shadow:0 2px 8px rgba(0,0,0,0.07);">
+    <h2 style="margin-top:0; border:none; padding:0; font-size:16px; color:#555;">Ваша ставка</h2>
+    <p style="margin:8px 0; font-size:15px;">
+        <strong style="color:#007bff;">{{ rate_row[0] }}%</strong> от суммы обычного занятия
+    </p>
+    <p style="margin:8px 0; font-size:15px;">
+        <strong style="color:#007bff;">{{ rate_row[1] }} ₽</strong> за пробное занятие
+    </p>
+    <p style="font-size:12px; color:#999; margin:4px 0;">Обновлено: {{ rate_row[2][:10] if rate_row[2] }}</p>
+</div>
+{% else %}
+<div style="background:#fff3cd; border:1px solid #ffc107; border-radius:8px; padding:16px; margin:20px 0;">
+    <strong>⚠ Ставка не установлена.</strong> Обратитесь к директору или старшему менеджеру.
+</div>
+{% endif %}
+
+{% if accruals %}
+<h2>История начислений</h2>
+<table class="data-table">
+    <thead>
+        <tr>
+            <th>Дата</th>
+            <th>Тип занятия</th>
+            <th>Сумма занятия</th>
+            <th>Начислено</th>
+            <th>Статус</th>
+            <th>Дата выплаты</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for a in accruals %}
+        <tr>
+            <td>{{ a[4][:10] }}</td>
+            <td>{{ 'Пробное' if a[1] == 'trial' else 'Обычное' }}</td>
+            <td>{{ "%.0f"|format(a[2]) }} ₽</td>
+            <td><strong>{{ "%.2f"|format(a[3]) }} ₽</strong></td>
+            <td>
+                {% if a[5] %}
+                    <span style="color:#28a745; font-weight:600;">✅ Выплачено</span>
+                {% else %}
+                    <span style="color:#dc3545;">⏳ Ожидает</span>
+                {% endif %}
+            </td>
+            <td>{{ a[6][:10] if a[6] else '—' }}</td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+{% else %}
+<p style="color:#666; text-align:center; padding:30px;">Начислений пока нет.</p>
+{% endif %}
+
+<div class="page-footer">
+    {% if session.get('role') == 'senior_repetitor' %}
+        <a href="{{ url_for('senior_repetitor') }}" class="btn btn-secondary">← Назад</a>
+    {% else %}
+        <a href="{{ url_for('repetitor_main') }}" class="btn btn-secondary">← Назад</a>
+    {% endif %}
+</div>
+{% endblock %}

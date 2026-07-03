@@ -1,0 +1,36 @@
+
+{% extends "base.html" %}
+{% block content %}
+<h2>Закрепление репетиторов за учениками</h2>
+
+{% if records %}
+<table border="1" style="margin:auto;">
+    <tr><th>ФИО ученика</th><th>Предмет</th><th>Менеджер</th><th>Репетитор</th><th>Действие</th></tr>
+    {% for r in records %}
+    <tr>
+        <td>{{ r['student_name'] }}</td>
+        <td>{{ r['subject'] }}</td>
+        <td>{{ r['manager_username'] }}</td>
+        <td>{{ r['repetitor_username'] if r['repetitor_username'] else "Не назначен" }}</td>
+        <td>
+            <form method="POST" action="{{ url_for('director_assign_repetitor') }}">
+                <input type="hidden" name="record_id" value="{{ r['id'] }}">
+                <select name="repetitor_username" required>
+                    {% for rep in repetitors %}
+                        <option value="{{ rep[1] }}" {% if rep[1] == r['repetitor_username'] %}selected{% endif %}>
+                            {{ rep[1] }}
+                        </option>
+                    {% endfor %}
+                </select>
+                <button type="submit">Сохранить</button>
+            </form>
+        </td>
+    </tr>
+    {% endfor %}
+</table>
+{% else %}
+<p>Нет записей учеников</p>
+{% endif %}
+
+<p><a href="{{ url_for('director_panel') }}">Назад</a></p>
+{% endblock %}

@@ -1,0 +1,268 @@
+{% extends "base.html" %}
+{% block content %}
+<h2>Пробные занятия</h2>
+
+<style>
+    .tab-buttons {
+        display: flex;
+        gap: 10px;
+        margin-bottom: 20px;
+    }
+    .tab-button {
+        padding: 10px 20px;
+        background-color: #007bff;
+        color: white;
+        border: none;
+        cursor: pointer;
+        border-radius: 5px;
+        text-decoration: none;
+        display: inline-block;
+    }
+    .tab-button:hover {
+        background-color: #0056b3;
+    }
+    .tab-content {
+        display: none;
+    }
+    .tab-content.active {
+        display: block;
+    }
+    .excel-table {
+        width: 100%;
+        border-collapse: collapse;
+        margin: 20px 0;
+    }
+    .excel-table th, .excel-table td {
+        border: 1px solid #000;
+        padding: 8px;
+        text-align: left;
+    }
+    .excel-table th {
+        background-color: #f2f2f2;
+    }
+    .status-badge {
+        padding: 3px 8px;
+        border-radius: 3px;
+        font-size: 12px;
+        font-weight: bold;
+    }
+    .status-unassigned {
+        background-color: #ffc107;
+        color: #000;
+    }
+    .status-scheduled {
+        background-color: #17a2b8;
+        color: white;
+    }
+    .status-completed {
+        background-color: #28a745;
+        color: white;
+    }
+    .status-pending {
+        background-color: #6c757d;
+        color: white;
+    }
+    .result-badge {
+        padding: 3px 8px;
+        border-radius: 3px;
+        font-size: 12px;
+        font-weight: bold;
+    }
+    .result-enrolled {
+        background-color: #28a745;
+        color: white;
+    }
+    .result-refused {
+        background-color: #dc3545;
+        color: white;
+    }
+    .result-thinking {
+        background-color: #ffc107;
+        color: #000;
+    }
+    .result-absent {
+        background-color: #6c757d;
+        color: white;
+    }
+    .action-buttons {
+        display: flex;
+        gap: 5px;
+    }
+    .action-button {
+        padding: 5px 10px;
+        text-decoration: none;
+        border-radius: 3px;
+        font-size: 12px;
+        color: white;
+        border: none;
+        cursor: pointer;
+    }
+    .btn-schedule {
+        background-color: #28a745;
+    }
+    .btn-reschedule {
+        background-color: #17a2b8;
+    }
+    .btn-result {
+        background-color: #ffc107;
+        color: #000;
+    }
+    .btn-edit {
+        background-color: #007bff;
+    }
+    .no-data {
+        text-align: center;
+        padding: 40px;
+        color: #6c757d;
+    }
+</style>
+
+<div class="tab-buttons">
+    <button class="tab-button" onclick="showTab('unassigned')">Не назначенные занятия</button>
+    <button class="tab-button" onclick="showTab('scheduled')">Назначенные занятия</button>
+    <button class="tab-button" onclick="showTab('completed')">Проведенные занятия</button>
+</div>
+
+
+<div id="unassigned" class="tab-content active">
+    <h3>Не назначенные занятия</h3>
+    {% if unassigned %}
+    <table class="excel-table">
+        <tr>
+            <th>Ученик</th>
+            <th>Предмет</th>
+            <th>Статус</th>
+            <th>Действия</th>
+        </tr>
+        {% for trial in unassigned %}
+        <tr>
+            <td>{{ trial[1] }}</td>
+            <td>{{ trial[2] }}</td>
+            <td>
+                <span class="status-badge status-unassigned">Не назначено</span>
+            </td>
+            <td class="action-buttons">
+                <a href="{{ url_for('schedule_trial_lesson', trial_id=trial[0]) }}"
+                   class="action-button btn-schedule">Назначить дату</a>
+            </td>
+        </tr>
+        {% endfor %}
+    </table>
+    {% else %}
+    <div class="no-data">Нет не назначенных пробных занятий</div>
+    {% endif %}
+</div>
+
+
+<div id="scheduled" class="tab-content">
+    <h3>Назначенные занятия</h3>
+    {% if scheduled %}
+    <table class="excel-table">
+        <tr>
+            <th>Ученик</th>
+            <th>Предмет</th>
+            <th>Дата</th>
+            <th>Время</th>
+            <th>Статус</th>
+            <th>Действия</th>
+        </tr>
+        {% for trial in scheduled %}
+        <tr>
+            <td>{{ trial[1] }}</td>
+            <td>{{ trial[2] }}</td>
+            <td>{{ trial[3] or 'Не указана' }}</td>
+            <td>{{ trial[4] or 'Не указано' }}</td>
+            <td>
+                <span class="status-badge status-scheduled">Назначено</span>
+            </td>
+            <td class="action-buttons">
+                <a href="{{ url_for('reschedule_trial_lesson', trial_id=trial[0]) }}"
+                   class="action-button btn-reschedule">Изменить дату</a>
+                <a href="{{ url_for('trial_result', trial_id=trial[0]) }}"
+                   class="action-button btn-result">Отметить результат</a>
+            </td>
+        </tr>
+        {% endfor %}
+    </table>
+    {% else %}
+    <div class="no-data">Нет назначенных пробных занятий</div>
+    {% endif %}
+</div>
+
+
+
+<div id="completed" class="tab-content">
+    <h3>Проведенные занятия</h3>
+    {% if completed %}
+    <table class="excel-table">
+        <tr>
+            <th>Ученик</th>
+            <th>Предмет</th>
+            <th>Дата</th>
+            <th>Результат</th>
+            <th>Причина / Заметки</th>  
+            <th>Действия</th>
+        </tr>
+        {% for trial in completed %}
+        <tr>
+            <td>{{ trial[1] }}</td>
+            <td>{{ trial[2] }}</td>
+            <td>{{ trial[3] or 'Не указана' }}</td>
+            <td>
+                {% if not trial[6] or trial[6] == 'pending' %}
+                    <span class="status-badge status-pending">Ожидание ответа</span>
+                {% elif trial[6] == 'enrolled' %}
+                    <span class="result-badge result-enrolled">Записался</span>
+                {% elif trial[6] == 'refused' %}
+                    <span class="result-badge result-refused">Не записался</span>
+                {% elif trial[6] == 'thinking' %}
+                    <span class="result-badge result-thinking">Думает</span>
+                {% elif trial[6] == 'absent' %}
+                    <span class="result-badge result-absent">Не было</span>
+                {% else %}
+                    {{ trial[6] }}
+                {% endif %}
+            </td>
+            <td>
+                {% if trial[7] %}
+                    <strong>Причина:</strong> {{ trial[7] }}<br>
+                {% endif %}
+                {% if trial[8] %}
+                    <strong>Заметки:</strong> {{ trial[8] }}
+                {% endif %}
+                {% if not trial[7] and not trial[8] %}
+                    —
+                {% endif %}
+            </td>
+            <td class="action-buttons">
+                <a href="{{ url_for('trial_result', trial_id=trial[0]) }}"
+                   class="action-button {% if not trial[6] or trial[6] == 'pending' %}btn-result{% else %}btn-edit{% endif %}">
+                    {% if not trial[6] or trial[6] == 'pending' %}
+                        Заполнить анкету
+                    {% else %}
+                        Изменить результат
+                    {% endif %}
+                </a>
+            </td>
+        </tr>
+        {% endfor %}
+    </table>
+    {% else %}
+    <div class="no-data">Нет проведенных пробных занятий</div>
+    {% endif %}
+</div>
+
+<div style="margin-top: 20px;">
+    <a href="{% if session.get('role') == 'senior_repetitor' %}{{ url_for('senior_repetitor') }}{% else %}{{ url_for('repetitor_main') }}{% endif %}" class="btn btn-secondary">← Назад</a>
+</div>
+
+<script>
+    function showTab(tabName) {
+        document.querySelectorAll('.tab-content').forEach(tab => {
+            tab.classList.remove('active');
+        });
+        document.getElementById(tabName).classList.add('active');
+    }
+    showTab('unassigned');
+</script>
+{% endblock %}

@@ -1,0 +1,62 @@
+{% extends "base.html" %}
+{% block content %}
+<h1>⚠️ Косяки репетиторов</h1>
+
+<div class="form-card">
+    <h2 style="margin-top:0; border:none; padding:0; font-size:18px;">Зафиксировать косяк</h2>
+    <form method="POST">
+        <div class="form-group">
+            <label>Репетитор <span class="required-star">*</span></label>
+            <select name="target_username" required>
+                <option value="">— Выберите репетитора —</option>
+                {% for rep in repetitors %}
+                <option value="{{ rep[0] }}">{{ rep[1] or rep[0] }} ({{ rep[0] }})</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="form-group">
+            <label>Причина косяка <span class="required-star">*</span></label>
+            <select name="reason" required>
+                <option value="">— Выберите причину —</option>
+                <option value="Опоздание на занятие">Опоздание на занятие</option>
+                <option value="Не провёл занятие без предупреждения">Не провёл занятие без предупреждения</option>
+                <option value="Ненадлежащее качество занятия">Ненадлежащее качество занятия</option>
+                <option value="Нарушение дисциплины">Нарушение дисциплины</option>
+                <option value="Некорректное общение с учеником/родителем">Некорректное общение с учеником/родителем</option>
+                <option value="Не сдал отчёт вовремя">Не сдал отчёт вовремя</option>
+                <option value="Другое">Другое</option>
+            </select>
+        </div>
+        <div class="form-group">
+            <label>Описание проблемы <span class="required-star">*</span></label>
+            <textarea name="description" placeholder="Опишите суть проблемы подробно..." required></textarea>
+        </div>
+        <button type="submit" class="btn btn-danger btn-block">⚠️ Зафиксировать косяк</button>
+    </form>
+</div>
+
+{% if kosyaki_list %}
+<h2>Зафиксированные косяки</h2>
+<table class="data-table">
+    <thead>
+        <tr><th>Дата</th><th>Репетитор</th><th>Причина</th><th>Описание</th></tr>
+    </thead>
+    <tbody>
+        {% for k in kosyaki_list %}
+        <tr>
+            <td>{{ k[5][:10] }}</td>
+            <td>{{ k[2] or k[1] }} <span style="color:#999; font-size:12px;">({{ k[1] }})</span></td>
+            <td><span style="color:#dc3545; font-weight:500;">{{ k[3] }}</span></td>
+            <td>{{ k[4] }}</td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+{% else %}
+<p style="color:#666; text-align:center; padding:30px;">Косяков пока нет.</p>
+{% endif %}
+
+<div class="page-footer">
+    <a href="{{ url_for('senior_repetitor') }}" class="btn btn-secondary">← Назад</a>
+</div>
+{% endblock %}
