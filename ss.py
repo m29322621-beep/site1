@@ -346,7 +346,7 @@ def welcome():
 @app.route('/goodbye')
 def goodbye():
     return render_template('goodbye.html')
-
+print(1)
 
 
 @app.route('/admin', methods=['GET', 'POST'])
