@@ -1,44 +1,15 @@
 {% extends "base.html" %}
 {% block content %}
 
-<style>
-        body {
-            font-family: Arial, sans-serif;
-            max-width: 600px;
-            margin: 0 auto;
-            padding: 20px;
-        }
-        .form-group {
-            margin-bottom: 15px;
-        }
-        label {
-            display: block;
-            margin-bottom: 5px;
-        }
-        input {
-            width: 100%;
-            padding: 8px;
-            box-sizing: border-box;
-        }
-        button {
-            background-color: #17a2b8;
-            color: white;
-            border: none;
-            padding: 10px 20px;
-            cursor: pointer;
-        }
-        .back-link {
-            display: inline-block;
-            margin-top: 15px;
-            color: #007bff;
-        }
-    </style>
-<h2>Перенос пробного занятия</h2>
+<h1>Перенос пробного занятия</h1>
 
-    <p><strong>Ученик:</strong> {{ trial[0] }}</p>
-    <p><strong>Предмет:</strong> {{ trial[1] }}</p>
-    <p><strong>Текущая дата:</strong> {{ trial[2] or 'Не указана' }}</p>
-    <p><strong>Текущее время:</strong> {{ trial[3] or 'Не указано' }}</p>
+<div class="form-card">
+    <div class="info-panel">
+        <div class="info-row"><span class="info-label">Ученик:</span> {{ trial[0] }}</div>
+        <div class="info-row"><span class="info-label">Предмет:</span> {{ trial[1] }}</div>
+        <div class="info-row"><span class="info-label">Текущая дата:</span> {{ trial[2] or 'Не указана' }}</div>
+        <div class="info-row"><span class="info-label">Текущее время:</span> {{ trial[3] or 'Не указано' }}</div>
+    </div>
 
     <form method="POST">
         <div class="form-group">
@@ -53,10 +24,13 @@
                    value="{{ trial[3] if trial[3] else '' }}">
         </div>
 
-        <button type="submit">Перенести</button>
+        <button type="submit" class="btn btn-warning btn-block">Перенести</button>
     </form>
+</div>
 
-    <a href="{{ url_for('repetitor_trial_lessons') }}" class="back-link">Назад к пробным занятиям</a>
+<div class="page-footer">
+    <a href="{{ url_for('repetitor_trial_lessons') }}" class="btn btn-secondary">← Назад к пробным занятиям</a>
+</div>
 
     <script>
         

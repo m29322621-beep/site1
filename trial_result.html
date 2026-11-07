@@ -1,138 +1,10 @@
 {% extends "base.html" %}
 {% block content %}
 
-<style>
-        body {
-            font-family: 'Segoe UI', Arial, sans-serif;
-            max-width: 700px;
-            margin: 0 auto;
-            padding: 20px;
-            background-color: #f8f9fa;
-        }
-        .container {
-            background: white;
-            border-radius: 8px;
-            padding: 30px;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
-        }
-        h2 {
-            color: #333;
-            margin-bottom: 20px;
-            padding-bottom: 10px;
-            border-bottom: 2px solid #eaeaea;
-        }
-        .info-block {
-            background: #f8f9fa;
-            border-left: 4px solid #007bff;
-            padding: 15px;
-            margin-bottom: 25px;
-            border-radius: 0 8px 8px 0;
-        }
-        .info-row {
-            margin: 5px 0;
-            font-size: 16px;
-        }
-        .info-label {
-            font-weight: 600;
-            color: #495057;
-            display: inline-block;
-            width: 100px;
-        }
-        .form-group {
-            margin-bottom: 25px;
-            padding: 20px;
-            background: #fff;
-            border: 1px solid #e9ecef;
-            border-radius: 8px;
-        }
-        .form-group h3 {
-            margin-top: 0;
-            margin-bottom: 15px;
-            color: #495057;
-            font-size: 18px;
-        }
-        .radio-group {
-            display: flex;
-            gap: 20px;
-            flex-wrap: wrap;
-            margin-bottom: 15px;
-        }
-        .radio-group label {
-            display: flex;
-            align-items: center;
-            gap: 5px;
-            cursor: pointer;
-            padding: 8px 15px;
-            background: #f8f9fa;
-            border: 1px solid #dee2e6;
-            border-radius: 6px;
-            transition: all 0.2s;
-        }
-        .radio-group label:hover {
-            background: #e9ecef;
-        }
-        .radio-group input[type="radio"] {
-            margin: 0;
-        }
-        .form-control {
-            width: 100%;
-            padding: 10px 12px;
-            border: 1px solid #ced4da;
-            border-radius: 6px;
-            font-size: 14px;
-            box-sizing: border-box;
-            margin-top: 8px;
-        }
-        .form-control:focus {
-            outline: none;
-            border-color: #007bff;
-            box-shadow: 0 0 0 3px rgba(0,123,255,0.1);
-        }
-        .btn {
-            padding: 12px 24px;
-            background-color: #007bff;
-            color: white;
-            border: none;
-            border-radius: 6px;
-            font-size: 16px;
-            font-weight: 500;
-            cursor: pointer;
-            transition: background-color 0.2s;
-        }
-        .btn:hover {
-            background-color: #0056b3;
-        }
-        .btn:disabled {
-            background-color: #6c757d;
-            cursor: not-allowed;
-        }
-        .back-link {
-            display: inline-block;
-            margin-top: 20px;
-            color: #6c757d;
-            text-decoration: none;
-            font-size: 14px;
-        }
-        .back-link:hover {
-            color: #0056b3;
-            text-decoration: underline;
-        }
-        .hidden {
-            display: none;
-        }
-        .alert {
-            padding: 12px 20px;
-            background: #fff3cd;
-            border: 1px solid #ffeeba;
-            color: #856404;
-            border-radius: 6px;
-            margin-bottom: 20px;
-        }
-    </style>
-<div class="container">
-        <h2>Результат пробного занятия</h2>
+<h1>Результат пробного занятия</h1>
+<div class="form-card">
 
-        <div class="info-block">
+        <div class="info-panel">
             <div class="info-row"><span class="info-label">Ученик:</span> {{ trial[0] }}</div>
             <div class="info-row"><span class="info-label">Предмет:</span> {{ trial[1] }}</div>
             <div class="info-row"><span class="info-label">Дата:</span> {{ trial[2] or 'Не указана' }}</div>
@@ -144,82 +16,94 @@
             <input type="hidden" name="subject" value="{{ trial[1] }}">
 
             
-            <div class="form-group">
-                <h3>1. Занятие было проведено?</h3>
-                <div class="radio-group">
-                    <label>
+            <div class="form-section">
+                <div class="form-section-title">1. Занятие было проведено?</div>
+                <div class="choice-grid">
+                    <label class="choice">
                         <input type="radio" name="attendance" value="present" required>
-                        Да, было
+                        <span>Да, было</span>
                     </label>
-                    <label>
+                    <label class="choice">
                         <input type="radio" name="attendance" value="absent" required>
-                        Нет, ученик не пришёл
+                        <span>Нет, ученик не пришёл</span>
                     </label>
                 </div>
             </div>
 
             
-            <div id="presentBlock" class="form-group hidden">
-                <h3>2. Результат занятия</h3>
-                <div class="radio-group">
-                    <label>
+            <div id="presentBlock" class="form-section hidden">
+                <div class="form-section-title">2. Результат занятия</div>
+                <div class="choice-grid">
+                    <label class="choice">
                         <input type="radio" name="result" value="enrolled">
-                        Записался на постоянные занятия
+                        <span>Записался на постоянные занятия</span>
                     </label>
-                    <label>
+                    <label class="choice">
                         <input type="radio" name="result" value="refused">
-                        Не записался
+                        <span>Не записался</span>
                     </label>
-                    <label>
+                    <label class="choice">
                         <input type="radio" name="result" value="thinking">
-                        Нужно подумать
+                        <span>Нужно подумать</span>
                     </label>
                 </div>
 
                 
                 <div id="refusalReasonBlock" class="hidden">
-                    <label for="refusal_reason">Причина отказа:</label>
-                    <textarea name="refusal_reason" id="refusal_reason" class="form-control" rows="3" placeholder="Укажите причину отказа..."></textarea>
+                    <div class="form-group divider-top">
+                        <label for="refusal_reason">Причина отказа:</label>
+                        <textarea name="refusal_reason" id="refusal_reason" rows="3" placeholder="Укажите причину отказа..."></textarea>
+                    </div>
                 </div>
 
                 
                 <div id="scheduleBlock" class="hidden">
-                    <h4>Назначить первое занятие сейчас?</h4>
-                    <div class="radio-group">
-                        <label>
+                    <div class="subheading divider-top">Назначить первое занятие сейчас?</div>
+                    <div class="choice-grid">
+                        <label class="choice">
                             <input type="radio" name="schedule_option" value="now">
-                            Да, назначить
+                            <span>Да, назначить</span>
                         </label>
-                        <label>
+                        <label class="choice">
                             <input type="radio" name="schedule_option" value="later">
-                            Позже
+                            <span>Позже</span>
                         </label>
                     </div>
                     <div id="scheduleNowBlock" class="hidden">
-                        <label for="lesson_date">Дата занятия:</label>
-                        <input type="date" name="lesson_date" id="lesson_date" class="form-control">
-                        <label for="lesson_time" style="margin-top: 10px;">Время занятия:</label>
-                        <input type="time" name="lesson_time" id="lesson_time" class="form-control">
+                        <div class="form-group divider-top">
+                            <label for="lesson_date">Дата занятия:</label>
+                            <input type="date" name="lesson_date" id="lesson_date">
+                        </div>
+                        <div class="form-group">
+                            <label for="lesson_time">Время занятия:</label>
+                            <input type="time" name="lesson_time" id="lesson_time">
+                        </div>
                     </div>
                 </div>
             </div>
 
             
-            <div id="absentBlock" class="form-group hidden">
-                <h3>2. Причина отсутствия</h3>
-                <textarea name="absence_reason" id="absence_reason" class="form-control" rows="3" placeholder="Укажите причину неявки ученика..."></textarea>
+            <div id="absentBlock" class="form-section hidden">
+                <div class="form-section-title">2. Причина отсутствия</div>
+                <div class="form-group">
+                    <textarea name="absence_reason" id="absence_reason" rows="3" placeholder="Укажите причину неявки ученика..."></textarea>
+                </div>
             </div>
 
             
-            <div class="form-group">
-                <h3>Заметки (дополнительная информация)</h3>
-                <textarea name="notes" id="notes" class="form-control" rows="3" placeholder="Любые дополнительные комментарии..."></textarea>
+            <div class="form-section">
+                <div class="form-section-title">Заметки (дополнительная информация)</div>
+                <div class="form-group">
+                    <textarea name="notes" id="notes" rows="3" placeholder="Любые дополнительные комментарии..."></textarea>
+                </div>
             </div>
 
-            <button type="submit" class="btn" id="submitBtn">Сохранить результат</button>
+            <button type="submit" class="btn btn-primary btn-block" id="submitBtn">Сохранить результат</button>
         </form>
 
-        <a href="{{ url_for('repetitor_trial_lessons') }}" class="btn btn-secondary">← Назад</a>
+        <div class="page-footer">
+            <a href="{{ url_for('repetitor_trial_lessons') }}" class="btn btn-secondary">← Назад</a>
+        </div>
     </div>
 
     <script>

@@ -4,7 +4,7 @@
 
     
 
-    <h2>Ученики без репетитора</h2>
+    <h2 class="section-title">Ученики без репетитора</h2>
     {% if students %}
         <ul>
             {% for student in students %}
@@ -15,15 +15,17 @@
             {% endfor %}
         </ul>
     {% else %}
-        <p>Нет учеников без репетитора.</p>
+        <div class="empty-state"><p>Нет учеников без репетитора.</p></div>
     {% endif %}
 
     {% if selected_student %}
-        <h2>Назначение для: {{ selected_student[1] }} ({{ selected_student[2] }})</h2>
+        <h2 class="section-title">Назначение для: {{ selected_student[1] }} ({{ selected_student[2] }})</h2>
 
         {% if repetitors %}
+            <div class="form-card">
             <form method="POST">
                 <input type="hidden" name="student_id" value="{{ selected_student[0] }}">
+                <div class="form-group">
                 <label for="repetitor_username">Выберите репетитора:</label>
                 <select name="repetitor_username" id="repetitor_username" required>
                     <option value="">-- Выберите репетитора --</option>
@@ -31,14 +33,14 @@
                         <option value="{{ rep }}">{{ rep }}</option>
                     {% endfor %}
                 </select>
-                <br><br>
-                <button type="submit">Назначить</button>
+                </div>
+                <button type="submit" class="btn btn-primary btn-block">Назначить</button>
             </form>
+            </div>
         {% else %}
-            <p style="color: red;">Нет доступных репетиторов.</p>
+            <p class="val-danger">Нет доступных репетиторов.</p>
         {% endif %}
     {% endif %}
 
-    <br>
-    <a href="{% if session.get('role') == 'director' %}{{ url_for('director') }}{% else %}{{ url_for('senior_manager') }}{% endif %}">Назад в панель старшего менеджера</a>
+    <div class="page-footer"><a href="{% if session.get('role') == 'director' %}{{ url_for('director') }}{% else %}{{ url_for('senior_manager') }}{% endif %}" class="btn btn-secondary">← Назад в панель старшего менеджера</a></div>
 {% endblock %}

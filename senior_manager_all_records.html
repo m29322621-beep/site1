@@ -1,118 +1,12 @@
 {% extends "base.html" %}
 {% block content %}
 
-<style>
-        body {
-            font-family: 'Segoe UI', Arial, sans-serif;
-            margin: 0;
-            padding: 20px;
-            background-color: #f8f9fa;
-        }
-        .container {
-            max-width: 1200px;
-            margin: 0 auto;
-        }
-        h1 {
-            color: #333;
-            margin-bottom: 30px;
-            padding-bottom: 10px;
-            border-bottom: 2px solid #eaeaea;
-        }
-        .excel-table {
-            width: 100%;
-            border-collapse: collapse;
-            margin: 20px 0;
-            font-size: 14px;
-            text-align: left;
-            border: 2px solid #000;
-            background: white;
-        }
-        .excel-table th,
-        .excel-table td {
-            border: 1px solid #333;
-            padding: 8px 12px;
-            vertical-align: top;
-        }
-        .excel-table th {
-            background-color: #f2f2f2;
-            font-weight: bold;
-            position: sticky;
-            top: 0;
-            z-index: 10;
-            color: #000;
-            white-space: nowrap;
-        }
-        .excel-table tr:nth-child(even) {
-            background-color: #f9f9f9;
-        }
-        .excel-table tr:hover {
-            background-color: #f1f1f1;
-        }
-        .additional-info {
-            max-width: 200px;
-            overflow: hidden;
-            text-overflow: ellipsis;
-            white-space: nowrap;
-        }
-        .additional-info.full {
-            max-width: none;
-            white-space: normal;
-            word-wrap: break-word;
-        }
-        .show-more-btn {
-            background: none;
-            border: none;
-            color: #007bff;
-            cursor: pointer;
-            font-size: 12px;
-            padding: 0;
-            text-decoration: underline;
-        }
-        .show-more-btn:hover {
-            color: #0056b3;
-        }
-        .no-data {
-            text-align: center;
-            padding: 40px;
-            color: #666;
-            font-style: italic;
-            background: white;
-            border-radius: 8px;
-            border: 1px solid #e0e0e0;
-        }
-        .back-link {
-            display: inline-block;
-            margin-top: 20px;
-            padding: 10px 20px;
-            background-color: white;
-            border: 1px solid #6c757d;
-            border-radius: 6px;
-            color: #6c757d;
-            text-decoration: none;
-            font-weight: 500;
-        }
-        .back-link:hover {
-            background-color: #6c757d;
-            color: white;
-        }
-        .role-badge {
-            display: inline-block;
-            padding: 3px 8px;
-            border-radius: 12px;
-            font-size: 12px;
-            font-weight: 600;
-            color: white;
-        }
-        .role-director { background-color: #6f42c1; }
-        .role-senior-manager { background-color: #007bff; }
-        .role-manager { background-color: #28a745; }
-        .role-other { background-color: #6c757d; }
-    </style>
-<div class="container">
+<div>
     <h1>Все записи</h1>
 
     {% if records %}
-    <table class="excel-table">
+    <div class="table-wrap">
+    <table class="data-table">
         <thead>
             <tr>
                 <th>#</th>
@@ -131,20 +25,20 @@
                 <td>{{ r[0] }}</td>
                 <td>
                     {% if r[7] == 'director' %}
-                        <span class="role-badge role-director">Директор</span>
+                        <span class="tag tag-warning">Директор</span>
                     {% elif r[7] == 'senior_manager' %}
-                        <span class="role-badge role-senior-manager">Старший менеджер</span>
+                        <span class="tag tag-info">Старший менеджер</span>
                     {% elif r[7] == 'manager' %}
-                        <span class="role-badge role-manager">Менеджер</span>
+                        <span class="tag tag-success">Менеджер</span>
                     {% else %}
-                        <span class="role-badge role-other">Не указана</span>
+                        <span class="tag tag-muted">Не указана</span>
                     {% endif %}
                 </td>
                 <td>{{ r[1] }}</td>
                 <td>{{ r[2] }}</td>
                 <td>{{ r[3] }}</td>
                 <td>
-                    <div id="info-{{ r[0] }}" class="additional-info">
+                    <div id="info-{{ r[0] }}" class="cell-clip additional-info">
                         {% if r[6] %}
                             {{ r[6] }}
                         {% else %}
@@ -152,7 +46,7 @@
                         {% endif %}
                     </div>
                     {% if r[6] and r[6]|length > 50 %}
-                    <button class="show-more-btn" onclick="toggleInfo({{ r[0] }})">Показать все</button>
+                    <button class="btn btn-sm btn-secondary" onclick="toggleInfo({{ r[0] }})">Показать все</button>
                     {% endif %}
                 </td>
                 <td>{{ r[4] if r[4] else '—' }}</td>
@@ -161,11 +55,12 @@
             {% endfor %}
         </tbody>
     </table>
+    </div>
     {% else %}
-    <div class="no-data">Пока нет записей</div>
+    <div class="empty-state"><p>Пока нет записей</p></div>
     {% endif %}
 
-    <div style="text-align:center;">
+    <div class="page-footer">
         <a href="{% if session.get('role') == 'director' %}{{ url_for('director') }}{% else %}{{ url_for('senior_manager') }}{% endif %}" class="btn btn-secondary">← Назад</a>
     </div>
 </div>

@@ -1,62 +1,12 @@
 {% extends "base.html" %}
 {% block content %}
 
-<style>
-        body {
-            font-family: Arial, sans-serif;
-            max-width: 800px;
-            margin: 0 auto;
-            padding: 20px;
-        }
-        .lesson-option {
-            margin: 10px 0;
-            padding: 10px;
-            background: white;
-            border-radius: 3px;
-            border: 1px solid #ddd;
-            cursor: pointer;
-        }
-        .lesson-option:hover {
-            background: #f8f9fa;
-        }
-        input[type="radio"] {
-            margin-right: 10px;
-        }
-        label {
-            display: block;
-            margin: 10px 0 5px;
-        }
-        select, input, button {
-            width: 100%;
-            padding: 8px;
-            margin: 5px 0;
-            box-sizing: border-box;
-        }
-        button {
-            background: #ffc107;
-            color: black;
-            border: none;
-            padding: 10px;
-            cursor: pointer;
-            margin-top: 15px;
-        }
-        .back-link {
-            display: inline-block;
-            margin-top: 15px;
-            color: #007bff;
-            text-decoration: none;
-        }
-        .no-lessons {
-            text-align: center;
-            color: #6c757d;
-            padding: 20px;
-        }
-    </style>
-<h2>Перенос занятия</h2>
+<h1>Перенос занятия</h1>
 
+<div class="form-card">
     {% if selected_lesson %}
-        <h3>Перенос занятия для {{ selected_lesson[1] }}</h3>
-        <p>Текущая дата: <strong>{{ selected_lesson[2] }} в {{ selected_lesson[3] }}</strong></p>
+        <h2 class="section-title">Перенос занятия для {{ selected_lesson[1] }}</h2>
+        <div class="info-panel"><div class="info-row">Текущая дата: <strong>{{ selected_lesson[2] }} в {{ selected_lesson[3] }}</strong></div></div>
 
         <form method="POST">
             <input type="hidden" name="lesson_id" value="{{ selected_lesson[0] }}">
@@ -64,41 +14,46 @@
             <input type="hidden" name="next" value="{{ next_url }}">
             {% endif %}
 
+            <div class="form-group">
             <label for="lesson_date">Новая дата занятия:</label>
             <input type="date" name="lesson_date" id="lesson_date" required
                    min="2025-01-01">
+            </div>
 
-            <button type="submit" name="confirm_reschedule">Перенести занятие</button>
+            <button type="submit" name="confirm_reschedule" class="btn btn-warning btn-block">Перенести занятие</button>
         </form>
     {% else %}
-        <h3>Выберите занятие для переноса:</h3>
+        <h2 class="section-title">Выберите занятие для переноса:</h2>
         {% if lessons %}
             <form method="POST">
                 {% for lesson in lessons %}
-                <div class="lesson-option">
+                <label class="option-row" for="lesson_{{ lesson[0] }}">
                     <input type="radio" name="lesson_id" value="{{ lesson[0] }}"
                            id="lesson_{{ lesson[0] }}"
                            onchange="this.form.submit()">
-                    <label for="lesson_{{ lesson[0] }}" style="display: inline;">
+                    <div>
                         <strong>{{ lesson[1] }}</strong><br>
                         {{ lesson[2] }} в {{ lesson[3] }}
-                    </label>
-                </div>
+                    </div>
+                </label>
                 {% endfor %}
                 <input type="hidden" name="select_lesson" value="1">
                 {% if next_url %}
                 <input type="hidden" name="next" value="{{ next_url }}">
                 {% endif %}
-                <button type="submit">Выбрать</button>
+                <button type="submit" class="btn btn-primary btn-block">Выбрать</button>
             </form>
         {% else %}
-            <div class="no-lessons">
+            <div class="empty-state">
                 <p>У вас нет запланированных занятий для переноса.</p>
             </div>
         {% endif %}
     {% endif %}
+</div>
 
+<div class="page-footer">
     <a href="{% if session.get('role') == 'senior_repetitor' %}{{ url_for('senior_repetitor') }}{% else %}{{ url_for('repetitor_main') }}{% endif %}" class="btn btn-secondary">← Назад</a>
+</div>
 
     <script>
         

@@ -2,19 +2,21 @@
 {% block content %}
 <h1>Новые записи</h1>
 
-    <form method="POST">
-        <button type="submit" name="clear" value="1">Отметить все как просмотренные</button>
-    </form>
+    <div class="toolbar"><form method="POST">
+        <button type="submit" name="clear" value="1" class="btn btn-success">Отметить все как просмотренные</button>
+    </form></div>
 
     {% if records %}
+        <div class="table-wrap">
         <table class="data-table">
-            <tr>
+            <thead><tr>
                 <th>ID</th>
                 <th>Менеджер</th>
                 <th>Ученик</th>
                 <th>Предмет</th>
                 <th>Дата отправки</th>
-            </tr>
+            </tr></thead>
+            <tbody>
             {% for r in records %}
             <tr>
                 <td>{{ r[0] }}</td>
@@ -24,10 +26,12 @@
                 <td>{{ r[4] }}</td>
             </tr>
             {% endfor %}
+            </tbody>
         </table>
+        </div>
     {% else %}
-        <p>Нет новых записей.</p>
+        <div class="empty-state"><p>Нет новых записей.</p></div>
     {% endif %}
 
-    <a href="{{ url_for('senior_manager') }}">Назад</a>
+    <div class="page-footer"><a href="{{ url_for('senior_manager') }}" class="btn btn-secondary">← Назад</a></div>
 {% endblock %}

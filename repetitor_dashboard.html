@@ -1,11 +1,14 @@
 
 {% extends "base.html" %}
 {% block content %}
-<h2>Мои ученики</h2>
+<h1>Мои ученики</h1>
 
 {% if students %}
-<table border="1" style="margin:auto;">
-    <tr><th>ФИО ученика</th><th>Предмет</th><th>Менеджер</th><th>Дата записи</th></tr>
+<table class="data-table">
+    <thead>
+        <tr><th>ФИО ученика</th><th>Предмет</th><th>Менеджер</th><th>Дата записи</th></tr>
+    </thead>
+    <tbody>
     {% for s in students %}
     <tr>
         <td>{{ s[0] }}</td>
@@ -14,10 +17,13 @@
         <td>{{ s[3] }}</td>
     </tr>
     {% endfor %}
+    </tbody>
 </table>
 {% else %}
-<p>У вас пока нет закреплённых учеников.</p>
+<div class="empty-state">
+    <p>У вас пока нет закреплённых учеников.</p>
+</div>
 {% endif %}
 
-<p><a href="{{ url_for('repetitor') }}">Назад</a></p>
+<div class="page-footer"><a href="{{ url_for('repetitor') }}" class="btn btn-secondary">← Назад</a></div>
 {% endblock %}

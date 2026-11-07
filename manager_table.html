@@ -1,8 +1,9 @@
 {% extends "base.html" %}
 {% block content %}
-<h1>📋 Таблица ваших записей</h1>
+<h1>Таблица ваших записей</h1>
 
 {% if records %}
+<div class="table-wrap">
 <table class="data-table">
     <thead>
         <tr>
@@ -23,12 +24,12 @@
                         {{ r[3] }}
                     </span>
                     {% if r[3]|length > 50 %}
-                    <button class="btn btn-secondary btn-sm" onclick="toggleInfo({{ r[0] }}, this)" style="margin-top:4px;">Показать всё</button>
+                    <button class="btn btn-secondary btn-sm" onclick="toggleInfo({{ r[0] }}, this)">Показать всё</button>
                     {% endif %}
                 {% else %}—{% endif %}
             </td>
             <td>
-                <form method="POST" style="display:inline;">
+                <form method="POST" class="inline-form">
                     <input type="hidden" name="delete" value="{{ r[0] }}">
                     <button type="submit" class="btn btn-danger btn-sm"
                             onclick="return confirm('Удалить запись?')">Удалить</button>
@@ -38,20 +39,20 @@
         {% endfor %}
     </tbody>
 </table>
+</div>
 
-<div style="display:flex; gap:12px; justify-content:center; margin-top:20px; flex-wrap:wrap;">
+<div class="btn-row">
     <form method="POST">
-        <button type="submit" name="clear" value="1" class="btn btn-secondary"
-                onclick="return confirm('Очистить всю таблицу?')">🗑 Очистить таблицу</button>
+        <button type="submit" name="clear" value="1" class="btn btn-warning"
+                onclick="return confirm('Очистить всю таблицу?')">Очистить таблицу</button>
     </form>
     <form method="POST">
         <button type="submit" name="send" value="1" class="btn btn-success"
-                onclick="return confirm('Отправить все данные в базу?')">📤 Отправить данные</button>
+                onclick="return confirm('Отправить все данные в базу?')">Отправить данные</button>
     </form>
 </div>
 {% else %}
-<div style="text-align:center; padding:50px 20px; color:#999;">
-    <div style="font-size:48px; margin-bottom:12px;">📭</div>
+<div class="empty-state">
     <p>Записей пока нет. Добавьте новую запись.</p>
 </div>
 {% endif %}

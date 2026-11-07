@@ -1,15 +1,16 @@
 {% extends "base.html" %}
 {% block content %}
-<h1>📊 Статистика репетиторов</h1>
+<h1>Статистика репетиторов</h1>
 
 {% if stats %}
+<div class="table-wrap">
 <table class="data-table">
     <thead>
         <tr>
             <th>Репетитор</th>
             <th>Предмет</th>
-            <th>Учеников</th>
-            <th>Занятий (план)</th>
+            <th class="num">Учеников</th>
+            <th class="num">Занятий (план)</th>
             <th>Ср. оценка</th>
             <th>Косяков</th>
         </tr>
@@ -17,35 +18,35 @@
     <tbody>
         {% for s in stats %}
         <tr>
-            <td><strong>{{ s[1] or s[0] }}</strong><br><span style="color:#999;font-size:12px;">{{ s[0] }}</span></td>
+            <td><strong>{{ s[1] or s[0] }}</strong><br><span class="text-muted">{{ s[0] }}</span></td>
             <td>{{ s[2] or '—' }}</td>
-            <td>{{ s[3] }}</td>
-            <td>{{ s[4] }}</td>
+            <td class="num">{{ s[3] }}</td>
+            <td class="num">{{ s[4] }}</td>
             <td>
                 {% set r = ratings.get(s[0]) %}
                 {% if r %}
-                    <span style="display:inline-block; padding:3px 10px; border-radius:20px; font-weight:700; font-size:13px;
-                        background:{% if r.avg >= 7 %}#28a745{% elif r.avg >= 5 %}#ffc107{% else %}#dc3545{% endif %};color:white;">
-                        {{ r.avg }} <span style="font-weight:400;font-size:11px;">({{ r.count }} отч.)</span>
+                    <span class="tag tag-{% if r.avg >= 7 %}success{% elif r.avg >= 5 %}warning{% else %}danger{% endif %}">
+                        {{ r.avg }} <span class="cell-note">({{ r.count }} отч.)</span>
                     </span>
                 {% else %}
-                    <span style="color:#999;">—</span>
+                    <span class="cell-empty">—</span>
                 {% endif %}
             </td>
             <td>
                 {% set k = kosyaki.get(s[0], 0) %}
                 {% if k > 0 %}
-                    <span style="color:#dc3545;font-weight:700;">{{ k }}</span>
+                    <span class="val-danger">{{ k }}</span>
                 {% else %}
-                    <span style="color:#28a745;">0</span>
+                    <span class="val-success">0</span>
                 {% endif %}
             </td>
         </tr>
         {% endfor %}
     </tbody>
 </table>
+</div>
 {% else %}
-<p style="color:#666;text-align:center;padding:40px;">Репетиторов пока нет.</p>
+<div class="empty-state"><p>Репетиторов пока нет.</p></div>
 {% endif %}
 
 <div class="page-footer">
