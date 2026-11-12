@@ -90,6 +90,14 @@
                 <span class="badge">{{ unassigned_count }}</span>
                 {% endif %}
             </a>
+            <a href="{{ url_for('school_schedule') }}" class="card">
+                <div class="card-title">📅 Расписание школы</div>
+                <div class="card-desc">По дням и списком</div>
+            </a>
+            <a href="{{ url_for('violations_table') }}" class="card">
+                <div class="card-title">⚠ Таблица нарушений</div>
+                <div class="card-desc">Нарушения сотрудников</div>
+            </a>
             <form method="POST" action="{{ url_for('senior_manager') }}" style="margin:0;">
                 <button type="submit" name="show_new" value="1"
                         class="card-btn" {% if new_count and new_count > 0 %}style="border-color:#28a745;"{% endif %}>
@@ -103,8 +111,8 @@
         </div>
 
         <div class="footer">
-            {% if is_director %}
-            <a href="{{ url_for('director') }}" class="btn-back">← Назад в панель директора</a>
+            {% if is_director or session.get('role') == 'admin' %}
+            <a href="{{ panel_url }}" class="btn-back">← Назад в панель</a>
             {% else %}
             <a href="{{ url_for('logout') }}" class="btn-back btn btn-secondary">Выйти</a>
             {% endif %}

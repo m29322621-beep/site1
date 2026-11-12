@@ -73,6 +73,17 @@
     {% endif %}
 
     <h2 class="section-title">Распределённые пробные занятия</h2>
+    <form method="GET" class="toolbar">
+        <select name="day" class="input-sm">
+            <option value="">Любой день недели</option>
+            {% for d in weekdays %}<option value="{{ loop.index0 }}" {{ 'selected' if day_filter == loop.index0|string }}>{{ d }}</option>{% endfor %}
+        </select>
+        <select name="rep" class="input-sm">
+            <option value="">Все репетиторы</option>
+            {% for r in repetitors %}<option value="{{ r[0] }}" {{ 'selected' if rep_filter == r[0] }}>{{ r[0] }}</option>{% endfor %}
+        </select>
+        <button type="submit" class="btn btn-sm btn-primary">Применить</button>
+    </form>
     {% if scheduled_trials %}
         <div class="table-wrap">
         <table class="data-table">
@@ -82,6 +93,7 @@
                 <th>Менеджер</th>
                 <th>Дата и время добавления</th>
                 <th>Репетитор</th>
+                <th>Дата пробного</th>
             </tr></thead>
             <tbody>
             {% for trial in scheduled_trials %}
@@ -97,6 +109,7 @@
                     {% endif %}
                 </td>
                 <td>{{ trial[4] }}</td>
+                <td>{{ trial[5] or '' }} {{ trial[6] or '' }}</td>
             </tr>
             {% endfor %}
         </tbody>
@@ -113,12 +126,14 @@
             <thead><tr>
                 <th>Репетитор</th>
                 <th>Предмет</th>
+                <th class="num">Учеников</th>
             </tr></thead>
             <tbody>
             {% for repetitor in repetitors %}
             <tr>
                 <td>{{ repetitor[0] }}</td>
                 <td>{{ repetitor[1] }}</td>
+                <td class="num">{{ repetitor[2] }}{% if repetitor[3] %} / {{ repetitor[3] }}{% endif %}</td>
             </tr>
             {% endfor %}
         </tbody>
@@ -128,7 +143,7 @@
         <div class="empty-state"><p>Нет репетиторов в системе</p></div>
     {% endif %}
 
-    <div class="page-footer"><a href="{% if session.get('role') == 'director' %}{{ url_for('director') }}{% else %}{{ url_for('senior_manager') }}{% endif %}" class="btn btn-secondary">← Назад</a></div>
+    <div class="page-footer"><a href="{{ panel_url }}" class="btn btn-secondary">← Назад</a></div>
 
 <script>
     (function() {

@@ -21,26 +21,41 @@
     {% if selected_student %}
         <h2 class="section-title">Назначение для: {{ selected_student[1] }} ({{ selected_student[2] }})</h2>
 
+        <form method="GET" class="toolbar">
+            <input type="hidden" name="student_id" value="{{ selected_student[0] }}">
+            <input type="text" name="q" value="{{ q }}" class="input-sm" placeholder="Поиск репетитора">
+            <select name="sort" class="input-sm">
+                <option value="count" {{ 'selected' if sort == 'count' }}>По числу учеников</option>
+                <option value="name" {{ 'selected' if sort == 'name' }}>По имени</option>
+            </select>
+            <button type="submit" class="btn btn-sm btn-primary">Найти</button>
+        </form>
         {% if repetitors %}
-            <div class="form-card">
-            <form method="POST">
-                <input type="hidden" name="student_id" value="{{ selected_student[0] }}">
-                <div class="form-group">
-                <label for="repetitor_username">Выберите репетитора:</label>
-                <select name="repetitor_username" id="repetitor_username" required>
-                    <option value="">-- Выберите репетитора --</option>
-                    {% for rep in repetitors %}
-                        <option value="{{ rep }}">{{ rep }}</option>
-                    {% endfor %}
-                </select>
-                </div>
-                <button type="submit" class="btn btn-primary btn-block">Назначить</button>
-            </form>
+            <div class="table-wrap">
+            <table class="data-table">
+                <thead><tr><th>Репетитор</th><th class="num">Учеников</th><th>Статус</th><th></th></tr></thead>
+                <tbody>
+                {% for rep in repetitors %}
+                    <tr {% if rep.bound %}class="row-highlight"{% endif %}>
+                        <td>{{ rep.name }} <span class="cell-note">{{ rep.username }}</span></td>
+                        <td class="num">{{ rep.count }}{% if rep.limit %} / {{ rep.limit }}{% endif %}</td>
+                        <td>{% if rep.bound %}<span class="tag tag-primary">Привязан к ученику</span>{% endif %}{% if rep.full %} <span class="tag tag-danger">Лимит</span>{% endif %}</td>
+                        <td>
+                            <form method="POST" class="inline-form">
+                                <input type="hidden" name="student_id" value="{{ selected_student[0] }}">
+                                <input type="hidden" name="repetitor_username" value="{{ rep.username }}">
+                                <button type="submit" class="btn btn-sm btn-primary" {{ 'disabled' if rep.full }}>Назначить</button>
+                            </form>
+                        </td>
+                    </tr>
+                {% endfor %}
+                </tbody>
+            </table>
             </div>
         {% else %}
             <p class="val-danger">Нет доступных репетиторов.</p>
         {% endif %}
     {% endif %}
 
-    <div class="page-footer"><a href="{% if session.get('role') == 'director' %}{{ url_for('director') }}{% else %}{{ url_for('senior_manager') }}{% endif %}" class="btn btn-secondary">← Назад в панель старшего менеджера</a></div>
+    <div class="page-footer"><a href="{{ panel_url }}" class="btn btn-secondary">← Назад в панель старшего менеджера</a></div>
 {% endblock %}

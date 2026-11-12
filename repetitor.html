@@ -41,6 +41,19 @@
         <div class="card-title" style="color:#28a745;">💰 Моя зарплата</div>
         <div class="card-desc">Начисления, ставка и история выплат</div>
     </a>
+    <a href="{{ url_for('repetitor_conducted') }}" class="action-card">
+        <div class="card-title">✔ Проведённые занятия</div>
+        <div class="card-desc">Отчёт и чек по проведённым занятиям</div>
+        {% if pending_reports %}<span class="badge-alert">{{ pending_reports }}</span>{% endif %}
+    </a>
+    <a href="{{ url_for('repetitor_students_info') }}" class="action-card">
+        <div class="card-title">🧾 Данные учеников</div>
+        <div class="card-desc">Родитель, класс, контакты</div>
+    </a>
+    <a href="{{ url_for('repetitor_weekly_report') }}" class="action-card">
+        <div class="card-title">🗓 Еженедельный отчёт</div>
+        <div class="card-desc">Таблицы за неделю</div>
+    </a>
 </div>
 
 <div class="page-footer">

@@ -1,13 +1,147 @@
-from flask import Flask, render_template, request, redirect, url_for, session, g, flash, jsonify
+from flask import Flask, render_template, request, redirect, url_for, session, g, flash, jsonify, send_from_directory, abort
 import sqlite3
 import os
 from datetime import datetime, timedelta
 from functools import wraps
+import re
+import uuid
+from werkzeug.utils import secure_filename
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 app = Flask(__name__, template_folder=BASE_DIR, static_folder=os.path.join(BASE_DIR, 'static'))
 app.secret_key = 'your_secret_key_here'
 app.permanent_session_lifetime = timedelta(hours=8)
+
+# ===== Common helpers for the extended features =====
+UPLOAD_DIR = os.path.join(BASE_DIR, 'uploads')
+os.makedirs(UPLOAD_DIR, exist_ok=True)
+app.config['MAX_CONTENT_LENGTH'] = 10 * 1024 * 1024
+ALLOWED_UPLOAD = {'png', 'jpg', 'jpeg', 'gif', 'webp', 'pdf', 'heic'}
+LESSON_DURATIONS = (60, 90, 120)
+MAX_STUDENTS_CHOICES = (5, 7, 9)
+ROLE_LABELS = {'director': 'директор', 'senior_manager': 'старший менеджер', 'manager': 'менеджер',
+               'senior_repetitor': 'старший репетитор', 'repetitor': 'репетитор',
+               'admin': 'админ'}
+WEEKDAYS = ['Понедельник', 'Вторник', 'Среда', 'Четверг', 'Пятница', 'Суббота', 'Воскресенье']
+
+
+def msk_now():
+    return datetime.utcnow() + timedelta(hours=3)
+
+
+def msk_today():
+    return msk_now().strftime('%Y-%m-%d')
+
+
+def save_upload(file_storage):
+    """Returns saved file name, '' if nothing uploaded, None if the file type is not allowed."""
+    if not file_storage or not file_storage.filename:
+        return ''
+    name = secure_filename(file_storage.filename) or file_storage.filename
+    ext = name.rsplit('.', 1)[-1].lower() if '.' in name else ''
+    if ext not in ALLOWED_UPLOAD:
+        return None
+    stored = uuid.uuid4().hex + '.' + ext
+    file_storage.save(os.path.join(UPLOAD_DIR, stored))
+    return stored
+
+
+def get_setting(cursor, key, default=None):
+    cursor.execute('SELECT value FROM settings WHERE key=?', (key,))
+    row = cursor.fetchone()
+    return row[0] if row else default
+
+
+def set_setting(cursor, key, value):
+    cursor.execute('INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)', (key, str(value)))
+
+
+def week_start(d):
+    return d - timedelta(days=d.weekday())
+
+
+def repetitor_load(cursor, username):
+    """(number of regular students, max students or None)."""
+    cursor.execute('''SELECT COUNT(DISTINCT student_name) FROM submitted_records
+                      WHERE repetitor_username=? AND lesson_type="regular"''', (username,))
+    count = cursor.fetchone()[0]
+    cursor.execute('SELECT max_students FROM users WHERE username=?', (username,))
+    row = cursor.fetchone()
+    return count, (row[0] if row and row[0] else None)
+
+
+def pending_report_lessons(cursor, username):
+    """Regular lessons that already ended but have no report yet."""
+    duration = int(get_setting(cursor, 'lesson_duration_min', 60))
+    cursor.execute('''SELECT id, student_name, subject, lesson_date, lesson_time FROM regular_lessons
+                      WHERE repetitor_username=? AND status="scheduled" AND COALESCE(report_submitted,0)=0
+                      ORDER BY lesson_date, lesson_time''', (username,))
+    now = datetime.now()
+    result = []
+    for row in cursor.fetchall():
+        try:
+            start = datetime.strptime(f'{row[3]} {row[4]}', '%Y-%m-%d %H:%M')
+        except ValueError:
+            continue
+        if now >= start + timedelta(minutes=duration):
+            result.append(row)
+    return result
+
+
+def _weekday_of(date_str):
+    try:
+        return datetime.strptime(date_str, '%Y-%m-%d').weekday()
+    except (TypeError, ValueError):
+        return -1
+
+
+def bound_repetitors(cursor, student_name):
+    """Repetitors who already worked with this student (the 'bound' ones)."""
+    found = set()
+    for sql in ('SELECT repetitor_username FROM student_info WHERE student_name=?',
+                'SELECT repetitor_username FROM submitted_records WHERE student_name=?',
+                'SELECT repetitor_username FROM trial_lessons WHERE student_name=?'):
+        cursor.execute(sql, (student_name,))
+        found.update(r[0] for r in cursor.fetchall() if r[0])
+    return found
+
+
+def response_periods(cursor, username):
+    """Responses sent today / this week / previous week (weeks reset on Monday, MSK)."""
+    today = msk_now().date()
+    monday = week_start(today)
+    prev = monday - timedelta(days=7)
+    fmt = lambda d: d.strftime('%Y-%m-%d')
+    def total(a, b):
+        cursor.execute('''SELECT COALESCE(SUM(responses_sent),0), COALESCE(SUM(client_replied),0), COALESCE(SUM(client_enrolled),0)
+                          FROM manager_responses WHERE manager_username=? AND report_date BETWEEN ? AND ?''', (username, fmt(a), fmt(b)))
+        return cursor.fetchone()
+    return {'today': total(today, today), 'week': total(monday, today), 'prev_week': total(prev, monday - timedelta(days=1))}
+
+
+def log_lesson_change(cursor, repetitor, lesson_id, kind, new_date, new_time, reason):
+    cursor.execute('SELECT student_name, lesson_date, lesson_time FROM regular_lessons WHERE id=? AND repetitor_username=?', (lesson_id, repetitor))
+    old = cursor.fetchone()
+    if not old:
+        return
+    cursor.execute('''INSERT INTO lesson_changes (repetitor_username, student_name, kind, old_date, old_time, new_date, new_time, reason, created_at)
+                      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)''',
+                   (repetitor, old[0], kind, old[1], old[2], new_date, new_time or (old[2] if new_date else None), reason,
+                    datetime.now().strftime("%Y-%m-%d %H:%M:%S")))
+
+
+PANELS = {'admin': 'admin', 'director': 'director', 'senior_manager': 'senior_manager', 'manager': 'manager',
+          'repetitor': 'repetitor_main', 'senior_repetitor': 'senior_repetitor'}
+
+
+def panel_url():
+    """Own panel of the logged-in user: the target of every "Назад" button that leads home."""
+    return url_for(PANELS.get(session.get('role'), 'login'))
+
+
+@app.context_processor
+def inject_panel_url():
+    return {'panel_url': panel_url()}
 
 
 def get_db():
@@ -28,7 +162,7 @@ def roles_required(*roles):
     def decorator(f):
         @wraps(f)
         def decorated_function(*args, **kwargs):
-            if 'username' not in session or session.get('role') not in roles:
+            if 'username' not in session or (session.get('role') not in roles and session.get('role') != 'admin'):
                 return redirect(url_for('login'))
             return f(*args, **kwargs)
         return decorated_function
@@ -195,13 +329,11 @@ def migrate_db():
             cols = [c[1] for c in cursor.fetchall()]
             if column not in cols:
                 cursor.execute(f'ALTER TABLE {table} ADD COLUMN {column} {col_type}')
-                print(f"Добавлена колонка {column} в {table}")
 
         def ensure_table(name, sql):
             cursor.execute(f"SELECT name FROM sqlite_master WHERE type='table' AND name='{name}'")
             if not cursor.fetchone():
                 cursor.execute(sql)
-                print(f"Создана таблица {name}")
 
         ensure_column('submitted_records', 'additional_info')
         ensure_column('users', 'added_by')
@@ -262,18 +394,64 @@ def migrate_db():
             rating INTEGER NOT NULL,
             created_at TEXT NOT NULL
         )''')
+
+        # ===== extended features: columns =====
+        ensure_column('users', 'max_students', 'INTEGER')
+        ensure_column('salary_rates', 'rate_type', "TEXT DEFAULT 'percent'")
+        ensure_column('salary_rates', 'fixed_amount', 'REAL DEFAULT 0')
+        ensure_column('salary_accruals', 'report_id', 'INTEGER')
+        ensure_column('manager_responses', 'is_late', 'INTEGER DEFAULT 0')
+
+        # ===== extended features: tables =====
+        ensure_table('settings', '''CREATE TABLE settings (key TEXT PRIMARY KEY, value TEXT)''')
+        ensure_table('student_info', '''CREATE TABLE student_info (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            student_name TEXT NOT NULL,
+            repetitor_username TEXT NOT NULL,
+            subject TEXT, parent_name TEXT, contact TEXT, grade TEXT, timezone TEXT,
+            price TEXT, notes TEXT, created_at TEXT,
+            UNIQUE(student_name, repetitor_username)
+        )''')
+        ensure_table('lesson_reports', '''CREATE TABLE lesson_reports (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            lesson_id INTEGER, repetitor_username TEXT NOT NULL, student_name TEXT,
+            lesson_date TEXT, lesson_time TEXT,
+            held INTEGER NOT NULL, reason TEXT, work_done TEXT, amount REAL DEFAULT 0,
+            check_file TEXT, status TEXT DEFAULT 'pending',
+            checked_by TEXT, checked_at TEXT, created_at TEXT NOT NULL
+        )''')
+        ensure_table('report_reviews', '''CREATE TABLE report_reviews (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            report_id INTEGER NOT NULL, reviewer TEXT NOT NULL,
+            rating INTEGER, complaint TEXT, created_at TEXT NOT NULL,
+            UNIQUE(report_id, reviewer)
+        )''')
+        ensure_table('salary_payouts', '''CREATE TABLE salary_payouts (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            username TEXT NOT NULL, amount REAL NOT NULL, paid_by TEXT, paid_at TEXT NOT NULL, note TEXT
+        )''')
+        ensure_table('manager_salary_rates', '''CREATE TABLE manager_salary_rates (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            manager_username TEXT NOT NULL UNIQUE,
+            per_response REAL DEFAULT 0, per_trial REAL DEFAULT 0, updated_at TEXT
+        )''')
+        ensure_table('lesson_changes', '''CREATE TABLE lesson_changes (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            repetitor_username TEXT NOT NULL, student_name TEXT, kind TEXT NOT NULL,
+            old_date TEXT, old_time TEXT, new_date TEXT, new_time TEXT, reason TEXT, created_at TEXT NOT NULL
+        )''')
         db.commit()
 
 
 
 PUBLIC_ROUTES = {'login', 'logout', 'static', 'goodbye', 'welcome'}
 
-ROLE_PREFIXES = {
-    'director':         ['/director'],
-    'senior_manager':   ['/senior_manager'],
-    'manager':          ['/manager'],
-    'repetitor':        ['/repetitor'],
-    'senior_repetitor': ['/senior_repetitor'],
+PREFIX_ROLES = {
+    '/director':         {'director', 'admin'},
+    '/senior_manager':   {'senior_manager', 'director', 'admin'},
+    '/manager':          {'manager'},
+    '/repetitor':        {'repetitor', 'senior_repetitor'},
+    '/senior_repetitor': {'senior_repetitor'},
 }
 
 @app.before_request
@@ -295,11 +473,9 @@ def check_auth():
 
     role = session.get('role')
 
-    for required_role, prefixes in ROLE_PREFIXES.items():
-        for prefix in prefixes:
-            if path.startswith(prefix):
-                if role != required_role and not (required_role == 'senior_manager' and role == 'director'):
-                    return redirect(url_for('login'))
+    for prefix, allowed in PREFIX_ROLES.items():
+        if path.startswith(prefix) and role not in allowed:
+            return redirect(url_for('login'))
 
 
 
@@ -397,7 +573,7 @@ def admin_students():
 
 @app.route('/director')
 def director():
-    if 'username' not in session or session.get('role') != 'director':
+    if 'username' not in session or session.get('role') not in ('director', 'admin'):
         return redirect(url_for('login'))
     return render_template('director.html')
 
@@ -620,68 +796,6 @@ def director_stats_all():
     return redirect(url_for('senior_manager_stats'))
 
 
-@app.route('/director/salary', methods=['GET', 'POST'])
-@roles_required('director')
-def director_salary():
-    db = get_db()
-    cursor = db.cursor()
-    if request.method == 'POST':
-        action = request.form.get('action')
-        now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        if action == 'set_rate':
-            rep_u = request.form['repetitor_username']
-            rate_percent = float(request.form.get('rate_percent', 50))
-            trial_rate = float(request.form.get('trial_lesson_rate', 500))
-            cursor.execute('SELECT id FROM salary_rates WHERE repetitor_username=?', (rep_u,))
-            if cursor.fetchone():
-                cursor.execute('UPDATE salary_rates SET rate_percent=?, trial_lesson_rate=?, set_by=?, updated_at=? WHERE repetitor_username=?',
-                               (rate_percent, trial_rate, session['username'], now, rep_u))
-            else:
-                cursor.execute('INSERT INTO salary_rates (repetitor_username, rate_percent, trial_lesson_rate, set_by, updated_at) VALUES (?, ?, ?, ?, ?)',
-                               (rep_u, rate_percent, trial_rate, session['username'], now))
-            db.commit()
-            flash(f"Ставка для {rep_u} обновлена: {rate_percent}%, пробное: {trial_rate} руб.")
-        elif action == 'mark_paid':
-            rep_u = request.form['repetitor_username']
-            cursor.execute('UPDATE salary_accruals SET paid=1, paid_at=? WHERE repetitor_username=? AND paid=0', (now, rep_u))
-            db.commit()
-            flash(f"Зарплата для {rep_u} выплачена!")
-        elif action == 'accrue_lesson':
-            rep_u = request.form['repetitor_username']
-            lesson_amount = float(request.form.get('lesson_amount', 0))
-            lesson_type = request.form.get('lesson_type', 'regular')
-            lesson_id = request.form.get('lesson_id')
-            cursor.execute('SELECT rate_percent, trial_lesson_rate FROM salary_rates WHERE repetitor_username=?', (rep_u,))
-            rate_row = cursor.fetchone()
-            if not rate_row:
-                flash("Сначала установите ставку для этого репетитора!")
-            else:
-                accrual = rate_row[1] if lesson_type == 'trial' else lesson_amount * (rate_row[0] / 100)
-                cursor.execute('INSERT INTO salary_accruals (repetitor_username, lesson_id, lesson_type, lesson_amount, accrual_amount, accrued_at) VALUES (?, ?, ?, ?, ?, ?)',
-                               (rep_u, lesson_id, lesson_type, lesson_amount, accrual, now))
-                db.commit()
-                flash(f"Начислено {accrual:.2f} руб. для {rep_u}")
-        return redirect(url_for('director_salary'))
-
-    cursor.execute('''SELECT u.username, u.name, u.subject, sr.rate_percent, sr.trial_lesson_rate, sr.updated_at
-                      FROM users u LEFT JOIN salary_rates sr ON sr.repetitor_username = u.username
-                      WHERE u.role IN ("repetitor", "senior_repetitor") ORDER BY u.name''')
-    repetitors = cursor.fetchall()
-    salary_data = []
-    for rep in repetitors:
-        username = rep[0]
-        cursor.execute('SELECT COALESCE(SUM(accrual_amount), 0) FROM salary_accruals WHERE repetitor_username=? AND paid=0', (username,))
-        unpaid = cursor.fetchone()[0]
-        cursor.execute('SELECT COALESCE(SUM(accrual_amount), 0) FROM salary_accruals WHERE repetitor_username=? AND paid=1', (username,))
-        total_paid = cursor.fetchone()[0]
-        cursor.execute('SELECT id, lesson_type, lesson_amount, accrual_amount, accrued_at, paid FROM salary_accruals WHERE repetitor_username=? ORDER BY accrued_at DESC LIMIT 10', (username,))
-        recent_accruals = cursor.fetchall()
-        salary_data.append({'username': username, 'name': rep[1] or username, 'subject': rep[2] or '',
-                             'rate_percent': rep[3], 'trial_rate': rep[4], 'rate_updated': rep[5],
-                             'unpaid_amount': unpaid, 'total_paid': total_paid, 'recent_accruals': recent_accruals})
-    return render_template('director_salary.html', salary_data=salary_data)
-
-
 @app.route('/director/assign', methods=['GET', 'POST'])
 @roles_required('director')
 def director_assign():
@@ -851,12 +965,23 @@ def senior_manager_trial_lessons():
     unassigned_trials = cursor.fetchall()
     cursor.execute('''SELECT tl.id, tl.student_name, tl.subject, tl.manager_username,
                              tl.repetitor_username, tl.scheduled_date, tl.scheduled_time, tl.created_at
-                      FROM trial_lessons tl WHERE tl.repetitor_username IS NOT NULL ORDER BY tl.scheduled_date, tl.scheduled_time''')
+                      FROM trial_lessons tl WHERE tl.repetitor_username IS NOT NULL AND tl.status = "scheduled"
+                      ORDER BY tl.scheduled_date, tl.scheduled_time''')
     scheduled_trials = cursor.fetchall()
+    day_filter = request.args.get('day', '')
+    rep_filter = request.args.get('rep', '')
+    if day_filter.isdigit():
+        scheduled_trials = [t for t in scheduled_trials if t[5] and _weekday_of(t[5]) == int(day_filter)]
+    if rep_filter:
+        scheduled_trials = [t for t in scheduled_trials if t[4] == rep_filter]
     cursor.execute('SELECT username, subject FROM users WHERE role IN ("repetitor", "senior_repetitor")')
-    repetitors = cursor.fetchall()
+    repetitors = []
+    for username, subject in cursor.fetchall():
+        count, limit = repetitor_load(cursor, username)
+        repetitors.append((username, subject, count, limit))
     return render_template('senior_manager_trial_lessons.html', unassigned_trials=unassigned_trials,
-                           scheduled_trials=scheduled_trials, repetitors=repetitors, is_director=is_director)
+                           scheduled_trials=scheduled_trials, repetitors=repetitors, is_director=is_director,
+                           day_filter=day_filter, rep_filter=rep_filter, weekdays=WEEKDAYS)
 
 
 @app.route('/senior_manager/trial_lessons/reassign/<int:trial_id>', methods=['POST'])
@@ -868,6 +993,10 @@ def senior_manager_reassign_trial(trial_id):
         cursor = db.cursor()
         cursor.execute('SELECT student_name, subject FROM trial_lessons WHERE id = ?', (trial_id,))
         trial = cursor.fetchone()
+        count, limit = repetitor_load(cursor, new_repetitor)
+        if trial and limit and count >= limit:
+            flash(f"У репетитора {new_repetitor} уже максимум учеников ({limit}).")
+            trial = None
         if trial:
             now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
             cursor.execute('UPDATE trial_lessons SET repetitor_username = ?, updated_at = ? WHERE id = ?', (new_repetitor, now, trial_id))
@@ -889,6 +1018,10 @@ def senior_manager_assign_repetitor():
         repetitor_username = request.form['repetitor_username']
         cursor.execute('SELECT student_name, subject, manager_username FROM submitted_records WHERE id=?', (student_id,))
         student = cursor.fetchone()
+        count, limit = repetitor_load(cursor, repetitor_username)
+        if student and limit and count >= limit:
+            flash(f"У репетитора {repetitor_username} уже максимум учеников ({limit}).")
+            student = None
         if student:
             cursor.execute('UPDATE submitted_records SET repetitor_username=? WHERE id=?', (repetitor_username, student_id))
             cursor.execute('SELECT id FROM trial_lessons WHERE student_name=? AND subject=? AND repetitor_username=?',
@@ -910,13 +1043,24 @@ def senior_manager_assign_repetitor():
         cursor.execute('SELECT id, student_name, subject FROM submitted_records WHERE id = ?', (student_id,))
         selected_student = cursor.fetchone()
         if selected_student:
-            cursor.execute('SELECT username FROM users WHERE role IN ("repetitor", "senior_repetitor") AND subject = ?', (selected_student[2],))
-            repetitors = [row[0] for row in cursor.fetchall()]
-            if not repetitors:
-                cursor.execute('SELECT username FROM users WHERE role IN ("repetitor", "senior_repetitor")')
-                repetitors = [row[0] for row in cursor.fetchall()]
+            cursor.execute('SELECT username, name FROM users WHERE role IN ("repetitor", "senior_repetitor") AND subject = ?', (selected_student[2],))
+            found = cursor.fetchall()
+            if not found:
+                cursor.execute('SELECT username, name FROM users WHERE role IN ("repetitor", "senior_repetitor")')
+                found = cursor.fetchall()
                 flash(f"Нет репетиторов по предмету '{selected_student[2]}'. Показаны все репетиторы.")
-    return render_template('senior_manager_assign.html', students=students, selected_student=selected_student, repetitors=repetitors)
+            bound = bound_repetitors(cursor, selected_student[1])
+            query = request.args.get('q', '').strip().lower()
+            for username, name in found:
+                if query and query not in (username or '').lower() and query not in (name or '').lower():
+                    continue
+                count, limit = repetitor_load(cursor, username)
+                repetitors.append({'username': username, 'name': name or username, 'count': count, 'limit': limit,
+                                   'full': bool(limit and count >= limit), 'bound': username in bound})
+            sort = request.args.get('sort', 'count')
+            repetitors.sort(key=lambda r: (not r['bound'], r['count'] if sort == 'count' else r['name'].lower()))
+    return render_template('senior_manager_assign.html', students=students, selected_student=selected_student, repetitors=repetitors,
+                           q=request.args.get('q', ''), sort=request.args.get('sort', 'count'))
 
 
 @app.route('/senior_manager/new_record', methods=['GET', 'POST'])
@@ -1132,7 +1276,8 @@ def manager_stats():
     cursor.execute('SELECT COALESCE(SUM(responses_sent),0), COALESCE(SUM(client_replied),0), COALESCE(SUM(client_enrolled),0) FROM manager_responses WHERE manager_username = ?', (username,))
     resp_totals = cursor.fetchone()
 
-    return render_template('manager_stats.html',
+    periods = response_periods(cursor, username)
+    return render_template('manager_stats.html', periods=periods,
                            total_sent=total_sent, subjects_stats=subjects_stats,
                            conversion_data=conversion_data, total_conversion_rate=total_conversion_rate,
                            responses_history=responses_history, resp_totals=resp_totals)
@@ -1154,20 +1299,23 @@ def manager_responses():
             responses_sent = int(request.form.get('responses_sent', 0))
             client_replied = int(request.form.get('client_replied', 0))
             client_enrolled = int(request.form.get('client_enrolled', 0))
-            report_date = request.form.get('report_date', datetime.now().strftime('%Y-%m-%d'))
+            report_date = request.form.get('report_date') or msk_today()
             notes = request.form.get('notes', '')
             now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-            cursor.execute('''INSERT INTO manager_responses (manager_username, responses_sent, client_replied, client_enrolled, report_date, notes, created_at)
-                              VALUES (?, ?, ?, ?, ?, ?, ?)''',
-                           (username, responses_sent, client_replied, client_enrolled, report_date, notes, now))
+            cursor.execute('''INSERT INTO manager_responses (manager_username, responses_sent, client_replied, client_enrolled, report_date, notes, created_at, is_late)
+                              VALUES (?, ?, ?, ?, ?, ?, ?, ?)''',
+                           (username, responses_sent, client_replied, client_enrolled, report_date, notes, now,
+                            1 if report_date < msk_today() else 0))
             db.commit()
             flash("Отчёт об откликах сохранён!")
         return redirect(url_for('manager_responses'))
-    cursor.execute('SELECT id, responses_sent, client_replied, client_enrolled, report_date, notes FROM manager_responses WHERE manager_username = ? ORDER BY report_date DESC', (username,))
+    cursor.execute('SELECT id, responses_sent, client_replied, client_enrolled, report_date, notes, is_late FROM manager_responses WHERE manager_username = ? ORDER BY report_date DESC', (username,))
     history = cursor.fetchall()
     cursor.execute('SELECT COALESCE(SUM(responses_sent),0), COALESCE(SUM(client_replied),0), COALESCE(SUM(client_enrolled),0) FROM manager_responses WHERE manager_username = ?', (username,))
     totals = cursor.fetchone()
-    return render_template('manager_responses.html', history=history, totals=totals)
+    cursor.execute('SELECT COUNT(*) FROM manager_responses WHERE manager_username=? AND report_date=?', (username, msk_today()))
+    return render_template('manager_responses.html', history=history, totals=totals, today=msk_today(),
+                           today_done=cursor.fetchone()[0] > 0, periods=response_periods(cursor, username))
 
 
 
@@ -1178,7 +1326,8 @@ def senior_repetitor():
     cursor = db.cursor()
     cursor.execute('SELECT student_name, subject, repetitor_username, manager_username, submitted_at FROM submitted_records')
     records = cursor.fetchall()
-    return render_template('senior_repetitor.html', records=records)
+    return render_template('senior_repetitor.html', records=records,
+                           pending_reports=len(pending_report_lessons(cursor, session['username'])))
 
 
 @app.route('/senior_repetitor/kosyaki', methods=['GET', 'POST'])
@@ -1277,7 +1426,8 @@ def repetitor_main():
     lessons = cursor.fetchall()
     cursor.execute('SELECT COUNT(*) FROM trial_lessons WHERE repetitor_username=? AND status="unassigned"', (session['username'],))
     trial_count = cursor.fetchone()[0]
-    return render_template('repetitor.html', students=students, lessons=lessons, trial_count=trial_count)
+    return render_template('repetitor.html', students=students, lessons=lessons, trial_count=trial_count,
+                           pending_reports=len(pending_report_lessons(cursor, session['username'])))
 
 
 @app.route('/repetitor/dashboard')
@@ -1477,6 +1627,7 @@ def reschedule_lesson():
         if new_date_obj < datetime(2025, 1, 1).date() or new_date_obj > (datetime.now() + timedelta(days=365)).date():
             flash("Некорректная дата!")
             return redirect(url_for('reschedule_lesson', lesson_id=lesson_id, next=next_url))
+        log_lesson_change(cursor, session['username'], lesson_id, 'reschedule', new_date, None, request.form.get('reason', ''))
         cursor.execute('UPDATE regular_lessons SET lesson_date=?, updated_at=? WHERE id=? AND repetitor_username=?',
                        (new_date, now, lesson_id, session['username']))
         db.commit()
@@ -1507,6 +1658,7 @@ def cancel_lesson():
     if request.method == 'POST' and 'confirm_cancel' in request.form:
         lesson_id = request.form['lesson_id']
         now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        log_lesson_change(cursor, session['username'], lesson_id, 'cancel', None, None, request.form['cancellation_reason'])
         cursor.execute('UPDATE regular_lessons SET status="cancelled", cancellation_reason=?, updated_at=? WHERE id=? AND repetitor_username=?',
                        (request.form['cancellation_reason'], now, lesson_id, session['username']))
         db.commit()
@@ -1604,6 +1756,7 @@ def edit_regular_lesson(lesson_id):
             except ValueError:
                 flash("Неверный формат даты!")
                 return redirect(url_for('edit_regular_lesson', lesson_id=lesson_id))
+            log_lesson_change(cursor, session['username'], lesson_id, 'reschedule', new_date, new_time, '')
             cursor.execute('UPDATE regular_lessons SET lesson_date=?, lesson_time=?, updated_at=? WHERE id=? AND repetitor_username=?',
                            (new_date, new_time, now, lesson_id, session['username']))
             db.commit()
@@ -1652,7 +1805,7 @@ def repetitor_salary():
     db = get_db()
     cursor = db.cursor()
     username = session['username']
-    cursor.execute('SELECT rate_percent, trial_lesson_rate, updated_at FROM salary_rates WHERE repetitor_username=?', (username,))
+    cursor.execute('SELECT rate_percent, rate_type, updated_at, fixed_amount FROM salary_rates WHERE repetitor_username=?', (username,))
     rate_row = cursor.fetchone()
     cursor.execute('SELECT COALESCE(SUM(accrual_amount), 0) FROM salary_accruals WHERE repetitor_username=? AND paid=0', (username,))
     unpaid = cursor.fetchone()[0]
@@ -1660,7 +1813,8 @@ def repetitor_salary():
     total_paid = cursor.fetchone()[0]
     cursor.execute('SELECT id, lesson_type, lesson_amount, accrual_amount, accrued_at, paid, paid_at FROM salary_accruals WHERE repetitor_username=? ORDER BY accrued_at DESC', (username,))
     accruals = cursor.fetchall()
-    return render_template('repetitor_salary.html', rate_row=rate_row, unpaid=unpaid, total_paid=total_paid, accruals=accruals)
+    cursor.execute('SELECT amount, paid_at, note FROM salary_payouts WHERE username=? ORDER BY paid_at DESC', (username,))
+    return render_template('repetitor_salary.html', rate_row=rate_row, unpaid=unpaid, total_paid=total_paid, accruals=accruals, payouts=cursor.fetchall())
 
 
 
@@ -1675,6 +1829,607 @@ def fix_repetitors():
     cursor.execute('UPDATE users SET role="repetitor", subject="Обществознание" WHERE role="repetitor_obshestvo"')
     db.commit()
     return "Репетиторы исправлены!"
+
+
+@app.route('/uploads/<path:name>')
+def uploaded_file(name):
+    if session.get('role') not in ('admin', 'director', 'senior_repetitor', 'repetitor'):
+        abort(403)
+    return send_from_directory(UPLOAD_DIR, name)
+
+
+# ===================== Conducted lessons, checks, settings, students =====================
+def parse_money(text):
+    try:
+        return float(re.sub(r'[^0-9.,]', '', str(text or '')).replace(',', '.') or 0)
+    except ValueError:
+        return 0.0
+
+
+def accrue_for_report(cursor, report_id):
+    """Creates the salary accrual for a verified lesson report. Returns (ok, message)."""
+    cursor.execute('SELECT repetitor_username, amount FROM lesson_reports WHERE id=?', (report_id,))
+    rep = cursor.fetchone()
+    if not rep:
+        return False, "Отчёт не найден."
+    cursor.execute('SELECT id FROM salary_accruals WHERE report_id=?', (report_id,))
+    if cursor.fetchone():
+        return True, "Начисление уже было создано."
+    cursor.execute('SELECT rate_percent, rate_type, fixed_amount FROM salary_rates WHERE repetitor_username=?', (rep[0],))
+    rate = cursor.fetchone()
+    if not rate:
+        return False, "Ставка репетитора не установлена, начисление не создано."
+    accrual = (rate[2] or 0) if rate[1] == 'fixed' else rep[1] * (rate[0] / 100)
+    now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    cursor.execute('''INSERT INTO salary_accruals (repetitor_username, lesson_id, lesson_type, lesson_amount, accrual_amount, accrued_at, report_id)
+                      VALUES (?, NULL, "regular", ?, ?, ?, ?)''', (rep[0], rep[1], accrual, now, report_id))
+    return True, f"Начислено {accrual:.2f} руб."
+
+
+@app.route('/repetitor/conducted', methods=['GET', 'POST'])
+def repetitor_conducted():
+    db = get_db()
+    cursor = db.cursor()
+    me = session['username']
+    if request.method == 'POST':
+        lesson_id = request.form.get('lesson_id')
+        cursor.execute('''SELECT id, student_name, lesson_date, lesson_time FROM regular_lessons
+                          WHERE id=? AND repetitor_username=? AND status="scheduled" AND COALESCE(report_submitted,0)=0''', (lesson_id, me))
+        lesson = cursor.fetchone()
+        now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        if not lesson:
+            flash("Занятие не найдено или отчёт по нему уже отправлен.")
+        elif request.form.get('held') == '0':
+            reason = request.form.get('reason', '').strip()
+            if not reason:
+                flash("Укажите причину, почему занятия не было.")
+            else:
+                cursor.execute('''INSERT INTO lesson_reports (lesson_id, repetitor_username, student_name, lesson_date, lesson_time, held, reason, status, created_at)
+                                  VALUES (?, ?, ?, ?, ?, 0, ?, "not_held", ?)''', (lesson[0], me, lesson[1], lesson[2], lesson[3], reason, now))
+                cursor.execute('UPDATE regular_lessons SET status="missed", report_submitted=1, updated_at=? WHERE id=?', (now, lesson[0]))
+                db.commit()
+                flash("Отмечено, что занятия не было.")
+        else:
+            shot = save_upload(request.files.get('check_file'))
+            work = request.form.get('work_done', '').strip()
+            amount = parse_money(request.form.get('amount'))
+            if shot is None:
+                flash("Чек: допустимы только изображения и PDF.")
+            elif not shot:
+                flash("Приложите чек!")
+            elif not work:
+                flash("Опишите, что было сделано на занятии.")
+            elif amount <= 0:
+                flash("Укажите сумму занятия.")
+            else:
+                cursor.execute('''INSERT INTO lesson_reports (lesson_id, repetitor_username, student_name, lesson_date, lesson_time, held, work_done, amount, check_file, status, created_at)
+                                  VALUES (?, ?, ?, ?, ?, 1, ?, ?, ?, "pending", ?)''', (lesson[0], me, lesson[1], lesson[2], lesson[3], work, amount, shot, now))
+                cursor.execute('UPDATE regular_lessons SET status="completed", report_submitted=1, updated_at=? WHERE id=?', (now, lesson[0]))
+                db.commit()
+                flash("Отчёт и чек отправлены на проверку директору.")
+        return redirect(url_for('repetitor_conducted'))
+    pending = pending_report_lessons(cursor, me)
+    prices = {}
+    for lesson in pending:
+        cursor.execute('SELECT price FROM student_info WHERE student_name=? AND repetitor_username=?', (lesson[1], me))
+        row = cursor.fetchone()
+        prices[lesson[1]] = parse_money(row[0]) if row else 0
+    cursor.execute('''SELECT id, student_name, lesson_date, lesson_time, held, reason, work_done, amount, check_file, status
+                      FROM lesson_reports WHERE repetitor_username=? ORDER BY created_at DESC LIMIT 100''', (me,))
+    return render_template('repetitor_conducted.html', pending=pending, prices=prices, history=cursor.fetchall(),
+                           duration=int(get_setting(cursor, 'lesson_duration_min', 60)))
+
+
+@app.route('/director/checks', methods=['GET', 'POST'])
+@roles_required('director')
+def director_checks():
+    db = get_db()
+    cursor = db.cursor()
+    if request.method == 'POST':
+        verdict = request.form.get('verdict')
+        report_id = request.form.get('report_id')
+        status_map = {'yes': 'verified', 'no': 'rejected', 'fake': 'fake'}
+        cursor.execute('SELECT status FROM lesson_reports WHERE id=?', (report_id,))
+        row = cursor.fetchone()
+        if not row or verdict not in status_map:
+            flash("Отчёт не найден.")
+        elif row[0] != 'pending':
+            flash("Этот отчёт уже проверен.")
+        else:
+            now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            cursor.execute('UPDATE lesson_reports SET status=?, checked_by=?, checked_at=? WHERE id=?',
+                           (status_map[verdict], session['username'], now, report_id))
+            msg = {'yes': 'Чек подтверждён. ', 'no': 'Чек отклонён.', 'fake': 'Чек отмечен как фейк.'}[verdict]
+            if verdict == 'yes':
+                ok, text = accrue_for_report(cursor, report_id)
+                msg += text
+            db.commit()
+            flash(msg)
+        return redirect(url_for('director_checks', status=request.args.get('status', 'pending')))
+    status = request.args.get('status', 'pending')
+    cursor.execute('SELECT status, COUNT(*) FROM lesson_reports WHERE held=1 GROUP BY status')
+    counts = dict(cursor.fetchall())
+    return render_template('director_checks.html', rows=_checks_rows(cursor, status), status=status, counts=counts)
+
+
+def _checks_rows(cursor, status):
+    where = '' if status == 'all' else 'AND r.status = ?'
+    params = () if status == 'all' else (status,)
+    cursor.execute(f'''SELECT r.id, r.repetitor_username, u.name, r.student_name, r.lesson_date, r.lesson_time, r.amount, r.work_done,
+                              r.check_file, r.status, r.created_at,
+                              (SELECT ROUND(AVG(rating), 1) FROM report_reviews WHERE report_id = r.id),
+                              (SELECT GROUP_CONCAT(complaint, ' | ') FROM report_reviews WHERE report_id = r.id AND complaint != '')
+                       FROM lesson_reports r LEFT JOIN users u ON u.username = r.repetitor_username
+                       WHERE r.held = 1 {where} ORDER BY r.created_at DESC LIMIT 300''', params)
+    return cursor.fetchall()
+
+
+@app.route('/director/settings', methods=['GET', 'POST'])
+@roles_required('director')
+def director_settings():
+    db = get_db()
+    cursor = db.cursor()
+    if request.method == 'POST':
+        if request.form.get('action') == 'duration':
+            value = request.form.get('duration', '')
+            if value.isdigit() and int(value) in LESSON_DURATIONS:
+                set_setting(cursor, 'lesson_duration_min', int(value))
+                db.commit()
+                flash(f"Время до уведомления о проведённом занятии: {value} мин.")
+        elif request.form.get('action') == 'limit':
+            value = request.form.get('max_students', '')
+            limit = int(value) if value.isdigit() and int(value) in MAX_STUDENTS_CHOICES else None
+            cursor.execute('UPDATE users SET max_students=? WHERE username=? AND role IN ("repetitor", "senior_repetitor")',
+                           (limit, request.form.get('username')))
+            db.commit()
+            flash("Лимит учеников обновлён.")
+        return redirect(url_for('director_settings'))
+    cursor.execute('SELECT username, name, subject FROM users WHERE role IN ("repetitor", "senior_repetitor") ORDER BY name')
+    reps = []
+    for u in cursor.fetchall():
+        count, limit = repetitor_load(cursor, u[0])
+        reps.append({'username': u[0], 'name': u[1] or u[0], 'subject': u[2] or '', 'count': count, 'limit': limit})
+    return render_template('director_settings.html', duration=int(get_setting(cursor, 'lesson_duration_min', 60)),
+                           durations=LESSON_DURATIONS, choices=MAX_STUDENTS_CHOICES, reps=reps)
+
+
+# ---------- student data ----------
+def student_rows(cursor, repetitor):
+    """Students of a repetitor with their card data (saved card)."""
+    cursor.execute('''SELECT DISTINCT student_name, subject FROM submitted_records
+                      WHERE repetitor_username=? AND lesson_type="regular"
+                      UNION SELECT student_name, subject FROM student_info WHERE repetitor_username=?
+                      ORDER BY 1''', (repetitor, repetitor))
+    rows = []
+    for name, subject in cursor.fetchall():
+        cursor.execute('''SELECT parent_name, contact, grade, timezone, price, notes, subject FROM student_info
+                          WHERE student_name=? AND repetitor_username=?''', (name, repetitor))
+        info = cursor.fetchone()
+        if not info:
+            info = ('', '', '', '', '', '', subject)
+        rows.append({'name': name, 'subject': subject or info[6] or '', 'parent_name': info[0] or '', 'contact': info[1] or '',
+                     'grade': info[2] or '', 'timezone': info[3] or '', 'price': info[4] or '', 'notes': info[5] or ''})
+    return rows
+
+
+def save_student_info(cursor, name, repetitor, subject, form):
+    now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    vals = [(form.get(f) or '').strip() for f in ('parent_name', 'contact', 'grade', 'timezone', 'price', 'notes')]
+    cursor.execute('SELECT id FROM student_info WHERE student_name=? AND repetitor_username=?', (name, repetitor))
+    if cursor.fetchone():
+        cursor.execute('''UPDATE student_info SET parent_name=?, contact=?, grade=?, timezone=?, price=?, notes=?
+                          WHERE student_name=? AND repetitor_username=?''', vals + [name, repetitor])
+    else:
+        cursor.execute('''INSERT INTO student_info (student_name, repetitor_username, subject, parent_name, contact, grade, timezone, price, notes, created_at)
+                          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)''', [name, repetitor, subject] + vals + [now])
+
+
+@app.route('/repetitor/students_info', methods=['GET', 'POST'])
+def repetitor_students_info():
+    db = get_db()
+    cursor = db.cursor()
+    me = session['username']
+    if request.method == 'POST':
+        save_student_info(cursor, request.form['student_name'], me, request.form.get('subject', ''), request.form)
+        db.commit()
+        flash("Данные ученика сохранены.")
+        return redirect(url_for('repetitor_students_info'))
+    count, limit = repetitor_load(cursor, me)
+    return render_template('repetitor_students_info.html', students=student_rows(cursor, me), count=count, limit=limit)
+
+
+@app.route('/director/students', methods=['GET', 'POST'])
+@roles_required('director')
+def director_students():
+    db = get_db()
+    cursor = db.cursor()
+    if request.method == 'POST':
+        action = request.form.get('action')
+        name = request.form.get('student_name', '').strip()
+        rep = request.form.get('repetitor_username', '')
+        now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        if action == 'delete':
+            cursor.execute('DELETE FROM submitted_records WHERE student_name=? AND repetitor_username=?', (name, rep))
+            cursor.execute('''UPDATE regular_lessons SET status="cancelled", cancellation_reason="Ученик удалён директором", updated_at=?
+                              WHERE student_name=? AND repetitor_username=? AND status="scheduled"''', (now, name, rep))
+            cursor.execute('DELETE FROM student_info WHERE student_name=? AND repetitor_username=?', (name, rep))
+            db.commit()
+            flash(f"Ученик {name} удалён у репетитора {rep}.")
+        elif action in ('move', 'add'):
+            target = request.form.get('new_repetitor') if action == 'move' else rep
+            count, limit = repetitor_load(cursor, target)
+            already = cursor.execute('SELECT 1 FROM submitted_records WHERE student_name=? AND repetitor_username=? AND lesson_type="regular"', (name, target)).fetchone()
+            if not name or not target:
+                flash("Укажите ученика и репетитора.")
+            elif limit and count >= limit and not already:
+                flash(f"У репетитора {target} уже максимум учеников ({limit}).")
+            elif action == 'move':
+                cursor.execute('UPDATE submitted_records SET repetitor_username=? WHERE student_name=? AND repetitor_username=?', (target, name, rep))
+                cursor.execute('UPDATE regular_lessons SET repetitor_username=?, updated_at=? WHERE student_name=? AND repetitor_username=? AND status="scheduled"', (target, now, name, rep))
+                cursor.execute('DELETE FROM student_info WHERE student_name=? AND repetitor_username=?', (name, target))
+                cursor.execute('UPDATE student_info SET repetitor_username=? WHERE student_name=? AND repetitor_username=?', (target, name, rep))
+                db.commit()
+                flash(f"Ученик {name} перемещён к репетитору {target}.")
+            else:
+                subject = request.form.get('subject', '').strip()
+                cursor.execute('''INSERT INTO submitted_records (manager_username, student_name, subject, submitted_at, added_by_role, repetitor_username, lesson_type)
+                                  VALUES (?, ?, ?, ?, "director", ?, "regular")''', (session['username'], name, subject, now, target))
+                save_student_info(cursor, name, target, subject, request.form)
+                db.commit()
+                flash(f"Ученик {name} добавлен репетитору {target}.")
+        return redirect(url_for('director_students'))
+    cursor.execute('SELECT username, name, subject FROM users WHERE role IN ("repetitor", "senior_repetitor") ORDER BY name')
+    reps = cursor.fetchall()
+    groups = []
+    for u in reps:
+        count, limit = repetitor_load(cursor, u[0])
+        groups.append({'username': u[0], 'name': u[1] or u[0], 'subject': u[2] or '', 'count': count, 'limit': limit,
+                       'students': student_rows(cursor, u[0])})
+    return render_template('director_students.html', groups=groups, reps=reps)
+
+
+# ---------- review of repetitors' lesson reports (senior repetitor) ----------
+@app.route('/senior_repetitor/reports', methods=['GET', 'POST'])
+@roles_required('senior_repetitor')
+def senior_repetitor_reports():
+    db = get_db()
+    cursor = db.cursor()
+    if request.method == 'POST':
+        report_id = request.form.get('report_id')
+        rating = request.form.get('rating', '')
+        complaint = request.form.get('complaint', '').strip()
+        rating = int(rating) if rating.isdigit() and 1 <= int(rating) <= 10 else None
+        if rating is None and not complaint:
+            flash("Поставьте оценку или напишите жалобу.")
+        else:
+            now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            cursor.execute('''INSERT OR REPLACE INTO report_reviews (report_id, reviewer, rating, complaint, created_at)
+                              VALUES (?, ?, ?, ?, ?)''', (report_id, session['username'], rating, complaint, now))
+            db.commit()
+            flash("Оценка сохранена." if not complaint else "Жалоба отправлена директору.")
+        return redirect(url_for('senior_repetitor_reports'))
+    cursor.execute('''SELECT r.id, r.repetitor_username, u.name, r.student_name, r.lesson_date, r.lesson_time, r.work_done,
+                             rv.rating, rv.complaint
+                      FROM lesson_reports r LEFT JOIN users u ON u.username = r.repetitor_username
+                      LEFT JOIN report_reviews rv ON rv.report_id = r.id AND rv.reviewer = ?
+                      WHERE r.held = 1 ORDER BY r.created_at DESC LIMIT 150''', (session['username'],))
+    return render_template('senior_repetitor_reports.html', rows=cursor.fetchall())
+
+
+# ===================== Salary (repetitors + managers) =====================
+def manager_unaccrued(cursor, username):
+    """Responses reports and held trial lessons of a manager that were not accrued yet."""
+    cursor.execute('''SELECT id, responses_sent FROM manager_responses WHERE manager_username=?
+                      AND id NOT IN (SELECT lesson_id FROM salary_accruals WHERE repetitor_username=? AND lesson_type="responses")''', (username, username))
+    responses = cursor.fetchall()
+    cursor.execute('''SELECT id FROM trial_lessons WHERE manager_username=? AND status="completed" AND result IN ("enrolled", "refused", "thinking")
+                      AND id NOT IN (SELECT lesson_id FROM salary_accruals WHERE repetitor_username=? AND lesson_type="trial_held")''', (username, username))
+    return responses, cursor.fetchall()
+
+
+@app.route('/director/salary', methods=['GET', 'POST'])
+@roles_required('director')
+def director_salary():
+    db = get_db()
+    cursor = db.cursor()
+    if request.method == 'POST':
+        action = request.form.get('action')
+        now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        user = request.form.get('username') or request.form.get('repetitor_username', '')
+        if action == 'set_rate':
+            rate_type = request.form.get('rate_type', 'percent')
+            rate_type = rate_type if rate_type in ('percent', 'fixed') else 'percent'
+            try:
+                rate_percent = float(request.form.get('rate_percent') or 50)
+                fixed_amount = float(request.form.get('fixed_amount') or 0)
+                trial_rate = 0  # пробные занятия всегда бесплатны
+            except ValueError:
+                flash("Проверьте числа в ставке.")
+                return redirect(url_for('director_salary'))
+            cursor.execute('SELECT id FROM salary_rates WHERE repetitor_username=?', (user,))
+            if cursor.fetchone():
+                cursor.execute('''UPDATE salary_rates SET rate_percent=?, trial_lesson_rate=?, rate_type=?, fixed_amount=?, set_by=?, updated_at=?
+                                  WHERE repetitor_username=?''', (rate_percent, trial_rate, rate_type, fixed_amount, session['username'], now, user))
+            else:
+                cursor.execute('''INSERT INTO salary_rates (repetitor_username, rate_percent, trial_lesson_rate, rate_type, fixed_amount, set_by, updated_at)
+                                  VALUES (?, ?, ?, ?, ?, ?, ?)''', (user, rate_percent, trial_rate, rate_type, fixed_amount, session['username'], now))
+            db.commit()
+            label = f"{fixed_amount:g} руб. за занятие" if rate_type == 'fixed' else f"{rate_percent:g}% от занятия"
+            flash(f"Ставка для {user} обновлена: {label}.")
+        elif action == 'set_manager_rate':
+            try:
+                per_response = float(request.form.get('per_response') or 0)
+                per_trial = float(request.form.get('per_trial') or 0)
+            except ValueError:
+                flash("Проверьте числа в ставке.")
+                return redirect(url_for('director_salary'))
+            cursor.execute('''INSERT INTO manager_salary_rates (manager_username, per_response, per_trial, updated_at) VALUES (?, ?, ?, ?)
+                              ON CONFLICT(manager_username) DO UPDATE SET per_response=excluded.per_response, per_trial=excluded.per_trial, updated_at=excluded.updated_at''',
+                           (user, per_response, per_trial, now))
+            db.commit()
+            flash(f"Ставка менеджера {user}: {per_response:g} руб. за отклик, {per_trial:g} руб. за проведённое пробное.")
+        elif action == 'accrue_manager':
+            cursor.execute('SELECT per_response, per_trial FROM manager_salary_rates WHERE manager_username=?', (user,))
+            rate = cursor.fetchone()
+            if not rate:
+                flash("Сначала установите ставку менеджера.")
+            else:
+                responses, trials = manager_unaccrued(cursor, user)
+                total = 0.0
+                for rid, sent in responses:
+                    amount = (sent or 0) * rate[0]
+                    total += amount
+                    cursor.execute('''INSERT INTO salary_accruals (repetitor_username, lesson_id, lesson_type, lesson_amount, accrual_amount, accrued_at)
+                                      VALUES (?, ?, "responses", ?, ?, ?)''', (user, rid, sent or 0, amount, now))
+                for (tid,) in trials:
+                    total += rate[1]
+                    cursor.execute('''INSERT INTO salary_accruals (repetitor_username, lesson_id, lesson_type, lesson_amount, accrual_amount, accrued_at)
+                                      VALUES (?, ?, "trial_held", 1, ?, ?)''', (user, tid, rate[1], now))
+                db.commit()
+                flash(f"Менеджеру {user} начислено {total:.2f} руб. (отчётов об откликах: {len(responses)}, пробных: {len(trials)}).")
+        elif action == 'mark_paid':
+            cursor.execute('SELECT COALESCE(SUM(accrual_amount), 0) FROM salary_accruals WHERE repetitor_username=? AND paid=0', (user,))
+            unpaid = cursor.fetchone()[0]
+            try:
+                amount = float(request.form.get('amount') or unpaid)
+            except ValueError:
+                amount = unpaid
+            if amount <= 0:
+                flash("Нечего выплачивать.")
+            else:
+                cursor.execute('UPDATE salary_accruals SET paid=1, paid_at=? WHERE repetitor_username=? AND paid=0', (now, user))
+                cursor.execute('INSERT INTO salary_payouts (username, amount, paid_by, paid_at, note) VALUES (?, ?, ?, ?, ?)',
+                               (user, amount, session['username'], now, request.form.get('note', '').strip()))
+                db.commit()
+                flash(f"Выплата для {user} отмечена: {amount:.2f} руб.")
+        elif action == 'accrue_lesson':
+            lesson_type = request.form.get('lesson_type', 'regular')
+            try:
+                lesson_amount = float(request.form.get('lesson_amount') or 0)
+            except ValueError:
+                lesson_amount = 0
+            cursor.execute('SELECT rate_percent, trial_lesson_rate, rate_type, fixed_amount FROM salary_rates WHERE repetitor_username=?', (user,))
+            rate = cursor.fetchone()
+            if not rate:
+                flash("Сначала установите ставку для этого репетитора!")
+            else:
+                if rate[2] == 'fixed':
+                    accrual = rate[3] or 0
+                else:
+                    accrual = lesson_amount * (rate[0] / 100)
+                cursor.execute('INSERT INTO salary_accruals (repetitor_username, lesson_id, lesson_type, lesson_amount, accrual_amount, accrued_at) VALUES (?, ?, ?, ?, ?, ?)',
+                               (user, request.form.get('lesson_id'), lesson_type, lesson_amount, accrual, now))
+                db.commit()
+                flash(f"Начислено {accrual:.2f} руб. для {user}")
+        return redirect(url_for('director_salary', sort=request.args.get('sort', ''), role=request.args.get('role', '')))
+
+    sort = request.args.get('sort', 'name')
+    role_filter = request.args.get('role', 'all')
+    roles = ('repetitor', 'senior_repetitor', 'manager', 'senior_manager')
+    cursor.execute(f'''SELECT u.username, u.name, u.subject, u.role, sr.rate_percent, sr.trial_lesson_rate, sr.updated_at,
+                              sr.rate_type, sr.fixed_amount, mr.per_response, mr.per_trial
+                       FROM users u LEFT JOIN salary_rates sr ON sr.repetitor_username = u.username
+                       LEFT JOIN manager_salary_rates mr ON mr.manager_username = u.username
+                       WHERE u.role IN ({",".join('"%s"' % r for r in roles)}) ORDER BY u.name''')
+    salary_data = []
+    for u in cursor.fetchall():
+        username = u[0]
+        if role_filter != 'all' and u[3] != role_filter:
+            continue
+        cursor.execute('SELECT COALESCE(SUM(accrual_amount), 0) FROM salary_accruals WHERE repetitor_username=? AND paid=0', (username,))
+        unpaid = cursor.fetchone()[0]
+        cursor.execute('SELECT COALESCE(SUM(amount), 0) FROM salary_payouts WHERE username=?', (username,))
+        total_paid = cursor.fetchone()[0]
+        cursor.execute('SELECT id, lesson_type, lesson_amount, accrual_amount, accrued_at, paid FROM salary_accruals WHERE repetitor_username=? ORDER BY accrued_at DESC LIMIT 10', (username,))
+        recent = cursor.fetchall()
+        is_manager = u[3] in ('manager', 'senior_manager')
+        pending_responses = pending_trials = 0
+        if is_manager:
+            responses, trials = manager_unaccrued(cursor, username)
+            pending_responses, pending_trials = sum(r[1] or 0 for r in responses), len(trials)
+        salary_data.append({'username': username, 'name': u[1] or username, 'subject': u[2] or '', 'role': u[3],
+                            'role_label': ROLE_LABELS.get(u[3], u[3]), 'is_manager': is_manager,
+                            'rate_percent': u[4], 'trial_rate': u[5], 'rate_updated': u[6], 'rate_type': u[7] or 'percent',
+                            'fixed_amount': u[8], 'per_response': u[9], 'per_trial': u[10],
+                            'unpaid_amount': unpaid, 'total_paid': total_paid, 'recent_accruals': recent,
+                            'pending_responses': pending_responses, 'pending_trials': pending_trials})
+    if sort == 'amount':
+        salary_data.sort(key=lambda d: -d['unpaid_amount'])
+    elif sort == 'role':
+        order = {r: i for i, r in enumerate(roles)}
+        salary_data.sort(key=lambda d: (order.get(d['role'], 9), d['name']))
+    return render_template('director_salary.html', salary_data=salary_data, sort=sort, role_filter=role_filter,
+                           role_labels={r: ROLE_LABELS[r] for r in roles})
+
+
+@app.route('/manager/salary')
+def manager_salary():
+    db = get_db()
+    cursor = db.cursor()
+    me = session['username']
+    cursor.execute('SELECT per_response, per_trial FROM manager_salary_rates WHERE manager_username=?', (me,))
+    rate = cursor.fetchone()
+    cursor.execute('SELECT COALESCE(SUM(accrual_amount), 0) FROM salary_accruals WHERE repetitor_username=? AND paid=0', (me,))
+    unpaid = cursor.fetchone()[0]
+    cursor.execute('SELECT COALESCE(SUM(amount), 0) FROM salary_payouts WHERE username=?', (me,))
+    paid = cursor.fetchone()[0]
+    cursor.execute('SELECT lesson_type, lesson_amount, accrual_amount, accrued_at, paid FROM salary_accruals WHERE repetitor_username=? ORDER BY accrued_at DESC LIMIT 50', (me,))
+    accruals = cursor.fetchall()
+    cursor.execute('SELECT amount, paid_at, note FROM salary_payouts WHERE username=? ORDER BY paid_at DESC', (me,))
+    return render_template('manager_salary.html', rate=rate, unpaid=unpaid, paid=paid, accruals=accruals, payouts=cursor.fetchall())
+
+
+# ===================== Reports: weekly, ledger, violations, school schedule =====================
+def parse_week(arg):
+    try:
+        d = datetime.strptime(arg, '%Y-%m-%d').date()
+    except (TypeError, ValueError):
+        d = datetime.now().date()
+    start = week_start(d)
+    return start, start + timedelta(days=6)
+
+
+def build_weekly_report(cursor, rep, start, end):
+    s, e = start.strftime('%Y-%m-%d'), end.strftime('%Y-%m-%d')
+    cursor.execute('''SELECT lesson_date, lesson_time, student_name, subject, status FROM regular_lessons
+                      WHERE repetitor_username=? AND lesson_date BETWEEN ? AND ? AND status != "cancelled"
+                      ORDER BY lesson_date, lesson_time''', (rep, s, e))
+    lessons = cursor.fetchall()
+    schedule_by_student = {}
+    for d, t, name, subject, status in lessons:
+        wd = WEEKDAYS[datetime.strptime(d, '%Y-%m-%d').weekday()]
+        schedule_by_student.setdefault(name, []).append(f'{wd} {t}')
+    students = student_rows(cursor, rep)
+    for st in students:
+        st['schedule'] = '; '.join(schedule_by_student.get(st['name'], []))
+    cursor.execute('''SELECT kind, student_name, old_date, old_time, new_date, new_time, reason, created_at FROM lesson_changes
+                      WHERE repetitor_username=? AND date(created_at) BETWEEN ? AND ? ORDER BY created_at''', (rep, s, e))
+    changes = cursor.fetchall()
+    cursor.execute('''SELECT created_at, reason, description, reporter_username FROM kosyaki
+                      WHERE target_username=? AND date(created_at) BETWEEN ? AND ? ORDER BY created_at''', (rep, s, e))
+    violations = cursor.fetchall()
+    cursor.execute('''SELECT checked_at, "Доход с занятия", student_name, amount FROM lesson_reports
+                      WHERE repetitor_username=? AND status="verified" AND date(checked_at) BETWEEN ? AND ?''', (rep, s, e))
+    ops = [(r[0], r[1], r[2], r[3]) for r in cursor.fetchall()]
+    cursor.execute('''SELECT paid_at, "Выплата зарплаты", COALESCE(note, ""), -amount FROM salary_payouts
+                      WHERE username=? AND date(paid_at) BETWEEN ? AND ?''', (rep, s, e))
+    ops += cursor.fetchall()
+    ops.sort(key=lambda r: r[0])
+    income = sum(o[3] for o in ops if o[3] > 0)
+    paid = -sum(o[3] for o in ops if o[3] < 0)
+    cursor.execute('''SELECT COUNT(*) FROM lesson_reports WHERE repetitor_username=? AND held=1 AND date(created_at) BETWEEN ? AND ?''', (rep, s, e))
+    held_count = cursor.fetchone()[0]
+    return {'lessons': lessons, 'students': students, 'changes': changes, 'violations': violations, 'ops': ops,
+            'income': income, 'paid': paid, 'held_count': held_count}
+
+
+def weekly_report_view(back_url, rep_choices=None):
+    db = get_db()
+    cursor = db.cursor()
+    start, end = parse_week(request.args.get('week'))
+    rep = request.args.get('rep') if rep_choices is not None else session['username']
+    if rep_choices is not None and not rep and rep_choices:
+        rep = rep_choices[0][0]
+    cursor.execute('SELECT name, subject FROM users WHERE username=?', (rep,))
+    u = cursor.fetchone()
+    data = build_weekly_report(cursor, rep, start, end)
+    return render_template('weekly_report.html', rep=rep, rep_name=(u[0] if u else rep), subject=(u[1] if u else ''),
+                           start=start, end=end, prev_week=(start - timedelta(days=7)).strftime('%Y-%m-%d'),
+                           next_week=(start + timedelta(days=7)).strftime('%Y-%m-%d'), rep_choices=rep_choices,
+                           back_url=back_url, weekdays=WEEKDAYS, **data)
+
+
+@app.route('/repetitor/weekly_report')
+def repetitor_weekly_report():
+    back = url_for('senior_repetitor') if session.get('role') == 'senior_repetitor' else url_for('repetitor_main')
+    return weekly_report_view(back)
+
+
+@app.route('/director/weekly_report')
+@roles_required('director')
+def director_weekly_report():
+    cursor = get_db().cursor()
+    cursor.execute('SELECT username, name FROM users WHERE role IN ("repetitor", "senior_repetitor") ORDER BY name')
+    return weekly_report_view(panel_url(), cursor.fetchall())
+
+
+@app.route('/director/ledger')
+@roles_required('director')
+def director_ledger():
+    db = get_db()
+    cursor = db.cursor()
+    today = datetime.now().date()
+    start = request.args.get('from') or (today - timedelta(days=30)).strftime('%Y-%m-%d')
+    end = request.args.get('to') or today.strftime('%Y-%m-%d')
+    cursor.execute('''SELECT r.checked_at, "Доход с занятия", COALESCE(u.name, r.repetitor_username), r.student_name, r.amount
+                      FROM lesson_reports r LEFT JOIN users u ON u.username = r.repetitor_username
+                      WHERE r.status="verified" AND date(r.checked_at) BETWEEN ? AND ?''', (start, end))
+    ops = [list(r) for r in cursor.fetchall()]
+    cursor.execute('''SELECT p.paid_at, "Выплата зарплаты", COALESCE(u.name, p.username), COALESCE(p.note, ""), -p.amount
+                      FROM salary_payouts p LEFT JOIN users u ON u.username = p.username
+                      WHERE date(p.paid_at) BETWEEN ? AND ?''', (start, end))
+    ops += [list(r) for r in cursor.fetchall()]
+    ops.sort(key=lambda r: r[0], reverse=True)
+    income = sum(o[4] for o in ops if o[4] > 0)
+    expense = -sum(o[4] for o in ops if o[4] < 0)
+    return render_template('director_ledger.html', ops=ops, income=income, expense=expense, start=start, end=end)
+
+
+@app.route('/senior_manager/violations')
+def violations_table():
+    db = get_db()
+    cursor = db.cursor()
+    role = request.args.get('role', 'all')
+    sql = '''SELECT k.created_at, k.target_username, COALESCE(u.name, k.target_username), COALESCE(u.role, ""),
+                    k.reason, k.description, k.reporter_username, k.reporter_role
+             FROM kosyaki k LEFT JOIN users u ON u.username = k.target_username'''
+    params = ()
+    if role == 'managers':
+        sql += ' WHERE u.role IN ("manager", "senior_manager")'
+    elif role == 'repetitors':
+        sql += ' WHERE u.role IN ("repetitor", "senior_repetitor")'
+    cursor.execute(sql + ' ORDER BY k.created_at DESC', params)
+    rows = [r[:3] + (ROLE_LABELS.get(r[3], r[3]),) + r[4:7] + (ROLE_LABELS.get(r[7], r[7]),) for r in cursor.fetchall()]
+    return render_template('violations_table.html', rows=rows, role=role)
+
+
+@app.route('/senior_manager/school_schedule')
+def school_schedule():
+    db = get_db()
+    cursor = db.cursor()
+    start, end = parse_week(request.args.get('week'))
+    view = request.args.get('view', 'days')
+    rep = request.args.get('rep', '')
+    s, e = start.strftime('%Y-%m-%d'), end.strftime('%Y-%m-%d')
+    sql = '''SELECT l.lesson_date, l.lesson_time, l.student_name, l.subject, l.repetitor_username, COALESCE(u.name, l.repetitor_username), "Постоянное", l.status
+             FROM regular_lessons l LEFT JOIN users u ON u.username = l.repetitor_username
+             WHERE l.lesson_date BETWEEN ? AND ? AND l.status != "cancelled"'''
+    params = [s, e]
+    trial_sql = '''SELECT t.scheduled_date, t.scheduled_time, t.student_name, t.subject, t.repetitor_username, COALESCE(u.name, t.repetitor_username), "Пробное", t.status
+                   FROM trial_lessons t LEFT JOIN users u ON u.username = t.repetitor_username
+                   WHERE t.scheduled_date BETWEEN ? AND ? AND t.repetitor_username IS NOT NULL'''
+    if rep:
+        sql += ' AND l.repetitor_username=?'
+        trial_sql += ' AND t.repetitor_username=?'
+        params_r = params + [rep]
+    else:
+        params_r = params
+    cursor.execute(sql, params_r)
+    rows = cursor.fetchall()
+    cursor.execute(trial_sql, params_r)
+    rows += cursor.fetchall()
+    rows.sort(key=lambda r: (r[0] or '', r[1] or ''))
+    days = []
+    for i in range(7):
+        d = start + timedelta(days=i)
+        ds = d.strftime('%Y-%m-%d')
+        days.append({'date': ds, 'label': f'{WEEKDAYS[i]}, {d.strftime("%d.%m")}', 'lessons': [r for r in rows if r[0] == ds]})
+    cursor.execute('SELECT username, name FROM users WHERE role IN ("repetitor", "senior_repetitor") ORDER BY name')
+    return render_template('school_schedule.html', start=start, end=end, view=view, rep=rep, rows=rows, days=days,
+                           reps=cursor.fetchall(), prev_week=(start - timedelta(days=7)).strftime('%Y-%m-%d'),
+                           next_week=(start + timedelta(days=7)).strftime('%Y-%m-%d'),
+                           back_url=panel_url())
+
 
 
 if __name__ == '__main__':

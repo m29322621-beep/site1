@@ -58,7 +58,7 @@
     {% endif %}
 
     <div class="page-footer">
-        <a href="{% if session.get('role') == 'director' %}{{ url_for('director') }}{% else %}{{ url_for('senior_manager') }}{% endif %}" class="btn btn-secondary">← Назад</a>
+        <a href="{{ panel_url }}" class="btn btn-secondary">← Назад</a>
     </div>
 </div>
 

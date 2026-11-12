@@ -17,10 +17,8 @@
 <div class="section-card">
     <div class="subheading">Ваша ставка</div>
     <div class="info-row">
-        <span class="val-primary">{{ rate_row[0] }}%</span> от суммы обычного занятия
-    </div>
-    <div class="info-row">
-        <span class="val-primary">{{ rate_row[1] }} ₽</span> за пробное занятие
+        {% if rate_row[1] == 'fixed' %}<span class="val-primary">{{ rate_row[3] }} ₽</span> за каждое занятие (фиксированная сумма)
+        {% else %}<span class="val-primary">{{ rate_row[0] }}%</span> от суммы занятия{% endif %}
     </div>
     <div class="cell-note">Обновлено: {{ rate_row[2][:10] if rate_row[2] }}</div>
 </div>
@@ -64,6 +62,14 @@
 </table>
 {% else %}
 <div class="empty-state"><p>Начислений пока нет.</p></div>
+{% endif %}
+
+{% if payouts %}
+<h2 class="section-title">Выплаты</h2>
+<table class="data-table">
+    <thead><tr><th>Дата</th><th class="num">Сумма</th><th>Примечание</th></tr></thead>
+    <tbody>{% for p in payouts %}<tr><td>{{ p[1][:10] }}</td><td class="num">{{ "%.2f"|format(p[0]) }} ₽</td><td>{{ p[2] or '' }}</td></tr>{% endfor %}</tbody>
+</table>
 {% endif %}
 
 <div class="page-footer">
