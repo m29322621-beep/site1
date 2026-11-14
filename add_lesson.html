@@ -1,0 +1,52 @@
+{% extends "base.html" %}
+{% block content %}
+
+<h1>Добавить занятие</h1>
+
+<div class="form-card">
+    <form method="POST">
+        <div class="form-group">
+        <label for="student_name">Ученик:</label>
+        <select name="student_name" id="student_name" required>
+            <option value="">-- Выберите ученика --</option>
+            {% for student in students %}
+                <option value="{{ student[0] }}"
+                        {% if request.args.get('student') == student[0] %}selected{% endif %}>
+                    {{ student[0] }} ({{ student[1] }})
+                </option>
+            {% endfor %}
+        </select>
+        </div>
+
+        <input type="hidden" name="subject" value="{{ students[0][1] if students else '' }}">
+
+        <div class="form-group">
+        <label for="lesson_date">Дата занятия:</label>
+        <input type="date" name="lesson_date" id="lesson_date" required
+               min="2025-01-01"
+               max="{{ (now + days365).strftime('%Y-%m-%d') if now else '2026-12-31' }}">
+        </div>
+
+        <div class="form-group">
+        <label for="lesson_time">Время занятия:</label>
+        <input type="time" name="lesson_time" id="lesson_time" required>
+        </div>
+
+        <button type="submit" class="btn btn-primary btn-block">Добавить занятие</button>
+    </form>
+</div>
+
+<div class="page-footer">
+    <a href="{% if session.get('role') == 'senior_repetitor' %}{{ url_for('senior_repetitor') }}{% else %}{{ url_for('repetitor_main') }}{% endif %}" class="btn btn-secondary">← Назад</a>
+</div>
+
+    <script>
+        
+        const today = new Date();
+        const maxDate = new Date();
+        maxDate.setFullYear(today.getFullYear() + 1);
+
+        document.getElementById('lesson_date').max = maxDate.toISOString().split('T')[0];
+        document.getElementById('lesson_date').min = '2025-01-01';
+    </script>
+{% endblock %}

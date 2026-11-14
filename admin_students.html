@@ -1,0 +1,102 @@
+{% extends "base.html" %}
+{% block content %}
+<h1>Все записи учеников</h1>
+
+{% if records %}
+<div class="table-wrap">
+    <table class="data-table">
+        <thead>
+            <tr>
+                <th>Менеджер</th>
+                <th>Роль добавившего</th>
+                <th>ФИО ученика</th>
+                <th>Предмет</th>
+                <th>Дополнительная информация</th>
+                <th>Репетитор</th>
+                <th>Дата/время (отправки)</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for r in records %}
+            <tr>
+                <td>{{ r[0] }}</td>
+                <td>
+                    {% if r[6] == 'director' %}
+                        <span class="tag tag-danger">Директор</span>
+                    {% elif r[6] == 'senior_manager' %}
+                        <span class="tag tag-info">Старший менеджер</span>
+                    {% elif r[6] == 'manager' %}
+                        <span class="tag tag-success">Менеджер</span>
+                    {% else %}
+                        <span class="tag tag-muted">Не указана</span>
+                    {% endif %}
+                </td>
+                <td>{{ r[1] }}</td>
+                <td>{{ r[2] }}</td>
+                <td>
+                    <div id="info-{{ loop.index }}" class="additional-info cell-clip wide">
+                        {% if r[5] %}
+                            {{ r[5] }}
+                        {% else %}
+                            —
+                        {% endif %}
+                    </div>
+                    {% if r[5] and r[5]|length > 50 %}
+                    <button class="btn btn-secondary btn-sm" onclick="toggleInfo({{ loop.index }})">Показать все</button>
+                    {% endif %}
+                </td>
+                <td>{{ r[4] if r[4] else "Не назначен" }}</td>
+                <td>{{ r[3] }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+
+
+<form method="POST" class="btn-row">
+    <button type="submit" name="clear" value="1" class="btn btn-warning" onclick="return confirm('Вы точно хотите очистить таблицу учеников?');">
+        Очистить таблицу
+    </button>
+</form>
+{% else %}
+<div class="empty-state"><p>Нет записей учеников.</p></div>
+{% endif %}
+
+<div class="page-footer">
+    <a href="{{ url_for('admin') }}" class="btn btn-secondary">← Назад в админ-панель</a>
+</div>
+
+<script>
+    function toggleInfo(id) {
+        const infoElement = document.getElementById('info-' + id);
+        const button = infoElement.nextElementSibling;
+
+        if (infoElement.classList.contains('full')) {
+            infoElement.classList.remove('full');
+            infoElement.style.whiteSpace = 'nowrap';
+            infoElement.style.overflow = 'hidden';
+            infoElement.style.textOverflow = 'ellipsis';
+            button.textContent = 'Показать все';
+        } else {
+            infoElement.classList.add('full');
+            infoElement.style.whiteSpace = 'normal';
+            infoElement.style.overflow = 'visible';
+            infoElement.style.textOverflow = 'clip';
+            button.textContent = 'Свернуть';
+        }
+    }
+
+    
+    document.addEventListener('DOMContentLoaded', function() {
+        const infoElements = document.querySelectorAll('.additional-info');
+        infoElements.forEach(element => {
+            if (element.textContent.trim() !== '—' && element.textContent.trim().length > 50) {
+                element.style.whiteSpace = 'nowrap';
+                element.style.overflow = 'hidden';
+                element.style.textOverflow = 'ellipsis';
+            }
+        });
+    });
+</script>
+{% endblock %}

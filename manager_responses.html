@@ -1,0 +1,111 @@
+{% extends "base.html" %}
+{% block content %}
+<h1>Отчёт об откликах</h1>
+{% if not today_done %}
+<div class="alert alert-warning">Отчёт за сегодня ({{ today }}) ещё не сдан. Срок сдачи: 23:59 по Москве. Позже отчёт будет помечен как просроченный.</div>
+{% endif %}
+
+{% if totals %}
+<div class="stats-container">
+    <div class="stat-card">
+        <div class="stat-number">{{ totals[0] }}</div>
+        <div class="stat-label">Всего откликов отправлено</div>
+    </div>
+    <div class="stat-card orange">
+        <div class="stat-number">{{ totals[1] }}</div>
+        <div class="stat-label">Клиентов ответило</div>
+    </div>
+    <div class="stat-card green">
+        <div class="stat-number">{{ totals[2] }}</div>
+        <div class="stat-label">Записались на пробное</div>
+    </div>
+    {% if totals[0] > 0 %}
+    <div class="stat-card">
+        <div class="stat-number">{{ "%.0f"|format(totals[2]/totals[0]*100) }}%</div>
+        <div class="stat-label">Конверсия из откликов</div>
+    </div>
+    {% endif %}
+</div>
+{% endif %}
+
+<h2 class="section-title">Добавить отчёт</h2>
+<div class="form-card">
+    <form method="POST">
+        <div class="form-group">
+            <label>Дата отчёта <span class="required-star">*</span></label>
+            <input type="date" name="report_date" value="{{ now_date }}" required>
+        </div>
+        <div class="form-group">
+            <label>Откликов отправлено сегодня <span class="required-star">*</span></label>
+            <input type="number" name="responses_sent" min="0" value="0" required>
+        </div>
+        <div class="form-group">
+            <label>Клиент ответил на сообщение <span class="required-star">*</span></label>
+            <input type="number" name="client_replied" min="0" value="0" required>
+        </div>
+        <div class="form-group">
+            <label>Клиент записался на пробное занятие <span class="required-star">*</span></label>
+            <input type="number" name="client_enrolled" min="0" value="0" required>
+        </div>
+        <div class="form-group">
+            <label>Заметки</label>
+            <textarea name="notes" placeholder="Дополнительная информация..."></textarea>
+        </div>
+        <button type="submit" class="btn btn-primary btn-block">Сохранить отчёт</button>
+    </form>
+</div>
+
+{% if history %}
+<h2 class="section-title">История отчётов</h2>
+<div class="table-wrap">
+<table class="data-table">
+    <thead>
+        <tr>
+            <th>Дата</th>
+            <th>Отправлено</th>
+            <th>Ответили</th>
+            <th>Записались</th>
+            <th>Конверсия</th>
+            <th>Заметки</th>
+            <th></th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for r in history %}
+        <tr>
+            <td>{{ r[4] }}{% if r[6] %} <span class="tag tag-danger">Просрочен</span>{% endif %}</td>
+            <td>{{ r[1] }}</td>
+            <td>{{ r[2] }}</td>
+            <td>{{ r[3] }}</td>
+            <td>
+                {% if r[1] > 0 %}
+                <span class="{% if r[3]/r[1]*100 >= 20 %}val-success{% else %}val-warning{% endif %}">
+                    {{ "%.0f"|format(r[3]/r[1]*100) }}%
+                </span>
+                {% else %}—{% endif %}
+            </td>
+            <td>{{ r[5] or '—' }}</td>
+            <td>
+                <form method="POST" class="inline-form">
+                    <input type="hidden" name="delete" value="{{ r[0] }}">
+                    <button class="btn btn-danger btn-sm" onclick="return confirm('Удалить запись?')">×</button>
+                </form>
+            </td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+</div>
+{% else %}
+<div class="empty-state"><p>Отчётов пока нет.</p></div>
+{% endif %}
+
+<div class="page-footer">
+    <a href="{{ url_for('manager_stats') }}" class="btn btn-secondary">К статистике</a>
+    <a href="{{ url_for('manager') }}" class="btn btn-secondary">← Назад</a>
+</div>
+
+<script>
+document.querySelector('input[name="report_date"]').value = new Date().toISOString().split('T')[0];
+</script>
+{% endblock %}

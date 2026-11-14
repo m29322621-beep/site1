@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Панель директора</title>
+    <style>
+        *, *::before, *::after { box-sizing: border-box; }
+        body { font-family: 'Segoe UI', Arial, sans-serif; margin: 0; padding: 24px; background: #f8f9fa; }
+        .container { max-width: 1100px; margin: 0 auto; }
+        h1 { color: #222; border-bottom: 2px solid #eaeaea; padding-bottom: 12px; margin-bottom: 24px; }
+        .section-label { font-size: 11px; text-transform: uppercase; letter-spacing: 1px; color: #aaa; font-weight: 600; margin: 28px 0 12px; }
+        .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 14px; }
+        .card { background: white; border: 1px solid #e0e0e0; border-radius: 10px; padding: 20px 16px; text-decoration: none; color: #333; transition: all 0.18s; box-shadow: 0 2px 4px rgba(0,0,0,0.05); display: block; min-height: 90px; }
+        .card:hover { transform: translateY(-2px); box-shadow: 0 6px 14px rgba(0,0,0,0.1); border-color: #007bff; }
+        .card-title { font-size: 15px; font-weight: 600; margin-bottom: 5px; }
+        .card-desc { font-size: 12px; color: #888; line-height: 1.45; }
+        .footer { margin-top: 36px; text-align: center; padding-top: 18px; border-top: 1px solid #eaeaea; }
+        .btn btn-secondary { display: inline-block; padding: 10px 24px; background: white; border: 1px solid #dc3545; border-radius: 6px; color: #dc3545; text-decoration: none; font-weight: 500; transition: all 0.2s; }
+        .btn btn-secondary:hover { background: #dc3545; color: white; }
+        .flash-list { list-style: none; padding: 0; margin: 0 0 18px; }
+        .flash-msg { background: #d4edda; border: 1px solid #c3e6cb; color: #155724; padding: 11px 15px; border-radius: 6px; margin-bottom: 7px; }
+        .sep { height: 1px; background: #eee; margin: 6px 0 20px; }
+    
+        .btn-secondary { display: inline-block; padding: 9px 20px; background: white; border: 1px solid #bbb; border-radius: 6px; color: #555; text-decoration: none; font-weight: 500; font-size: 14px; transition: all 0.18s; cursor: pointer; }
+        .btn-secondary:hover { background: #f5f5f5; border-color: #999; }
+    </style>
+</head>
+<body>
+    {% with messages = get_flashed_messages() %}
+      {% if messages %}<ul class="flash-list">{% for m in messages %}<li class="flash-msg">{{ m }}</li>{% endfor %}</ul>{% endif %}
+    {% endwith %}
+    <div class="container">
+        <h1>🏢 Панель директора</h1>
+
+        <div class="section-label">Панель директора</div>
+        <div class="sep"></div>
+        <div class="grid">
+            <a href="{{ url_for('director_add_user_db') }}" class="card">
+                <div class="card-title">➕ Добавить пользователя</div>
+                <div class="card-desc">Создание новых учётных записей</div>
+            </a>
+            <a href="{{ url_for('director_change_unique') }}" class="card">
+                <div class="card-title">🔄 Поменять репетитора</div>
+                <div class="card-desc">Изменить репетитора у ученика</div>
+            </a>
+            <a href="{{ url_for('senior_manager_trial_lessons') }}" class="card">
+                <div class="card-title">🎯 Пробные занятия</div>
+                <div class="card-desc">Распределение пробных по репетиторам</div>
+            </a>
+            <a href="{{ url_for('manage_repetitors') }}" class="card">
+                <div class="card-title">🔗 Управление репетиторами</div>
+                <div class="card-desc">Привязка менеджеров к репетиторам</div>
+            </a>
+            <a href="{{ url_for('director_stats_my') }}" class="card">
+                <div class="card-title">📌 Моя статистика</div>
+                <div class="card-desc">Личная статистика директора</div>
+            </a>
+            <a href="{{ url_for('senior_manager_stats') }}" class="card">
+                <div class="card-title">📊 Статистика менеджеров</div>
+                <div class="card-desc">Сводная статистика по всем менеджерам</div>
+            </a>
+        </div>
+
+        <div class="section-label">Репетиторы и ученики</div>
+        <div class="sep"></div>
+        <div class="grid">
+            <a href="{{ url_for('director_new_record') }}" class="card">
+                <div class="card-title">📝 Добавить ученика</div>
+                <div class="card-desc">Добавить нового ученика через панель директора</div>
+            </a>
+            <a href="{{ url_for('director_records_table') }}" class="card">
+                <div class="card-title">📋 Мои записи</div>
+                <div class="card-desc">Ученики, добавленные директором</div>
+            </a>
+            <a href="{{ url_for('senior_manager_table') }}" class="card">
+                <div class="card-title">🗂 Все записи</div>
+                <div class="card-desc">Полная таблица всех отправленных записей</div>
+            </a>
+            <a href="{{ url_for('senior_manager') }}" class="card">
+                <div class="card-title">🆕 Новые записи</div>
+                <div class="card-desc">Новые поступившие записи от менеджеров</div>
+            </a>
+        </div>
+
+        <div class="section-label">Финансы</div>
+        <div class="sep"></div>
+        <div class="grid">
+            <a href="{{ url_for('director_salary') }}" class="card" style="border-color:#28a745;">
+                <div class="card-title" style="color:#28a745;">💰 Зарплаты</div>
+                <div class="card-desc">Управление ставками и выплатами</div>
+            </a>
+            <a href="{{ url_for('director_checks') }}" class="card">
+                <div class="card-title">✅ Проверка чеков</div>
+                <div class="card-desc">Подтверждение чеков репетиторов</div>
+            </a>
+            <a href="{{ url_for('director_ledger') }}" class="card">
+                <div class="card-title">📒 Доходы и расходы</div>
+                <div class="card-desc">Поступления и выплаты</div>
+            </a>
+            <a href="{{ url_for('director_tables') }}" class="card">
+                <div class="card-title">🗃 Таблицы</div>
+                <div class="card-desc">Все таблицы и данные системы</div>
+            </a>
+        </div>
+
+        <div class="section-label">Учебный процесс</div>
+        <div class="sep"></div>
+        <div class="grid">
+            <a href="{{ url_for('director_students') }}" class="card">
+                <div class="card-title">🎓 Ученики репетиторов</div>
+                <div class="card-desc">Добавление, перенос и удаление</div>
+            </a>
+            <a href="{{ url_for('director_settings') }}" class="card">
+                <div class="card-title">⚙ Настройки</div>
+                <div class="card-desc">Время уведомления и лимит учеников</div>
+            </a>
+            <a href="{{ url_for('director_weekly_report') }}" class="card">
+                <div class="card-title">🗓 Еженедельный отчёт</div>
+                <div class="card-desc">Отчёт по репетитору за неделю</div>
+            </a>
+            <a href="{{ url_for('school_schedule') }}" class="card">
+                <div class="card-title">📅 Расписание школы</div>
+                <div class="card-desc">По дням и списком</div>
+            </a>
+            <a href="{{ url_for('violations_table') }}" class="card">
+                <div class="card-title">⚠ Таблица нарушений</div>
+                <div class="card-desc">Нарушения сотрудников</div>
+            </a>
+        </div>
+
+        <div class="footer">
+            <a href="{{ url_for('logout') }}" class="btn btn-secondary">Выйти</a>
+        </div>
+    </div>
+</body>
+</html>

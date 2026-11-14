@@ -1,0 +1,22 @@
+{% extends "base.html" %}
+{% block content %}
+<div>
+    <h1>Статистика</h1>
+
+    <div class="actions-grid">
+        <a href="{{ url_for('director_stats_my') }}" class="action-card">
+            <div class="card-title">Моя статистика</div>
+            <div class="card-desc">Показывает только вашу статистику</div>
+        </a>
+
+        <a href="{{ url_for('director_stats_all') }}" class="action-card">
+            <div class="card-title">Статистика всех менеджеров</div>
+            <div class="card-desc">Сводная статистика по всем менеджерам</div>
+        </a>
+    </div>
+
+    <div class="page-footer">
+        <a href="{{ panel_url }}" class="btn btn-secondary">← Назад</a>
+    </div>
+</div>
+{% endblock %}

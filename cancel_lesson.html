@@ -1,0 +1,69 @@
+{% extends "base.html" %}
+{% block content %}
+
+<h1>Отмена занятия</h1>
+
+<div class="form-card">
+    {% if selected_lesson %}
+        <h2 class="section-title">Отмена занятия с {{ selected_lesson[1] }}</h2>
+        <div class="info-panel"><div class="info-row">Дата: <strong>{{ selected_lesson[2] }} в {{ selected_lesson[3] }}</strong></div></div>
+
+        <form method="POST">
+            <input type="hidden" name="lesson_id" value="{{ selected_lesson[0] }}">
+            {% if next_url %}
+            <input type="hidden" name="next" value="{{ next_url }}">
+            {% endif %}
+
+            <div class="form-group">
+            <label for="cancellation_reason">Причина отмены занятия:</label>
+            <textarea name="cancellation_reason" id="cancellation_reason"
+                      placeholder="Введите причину отмены занятия..."
+                      oninput="toggleConfirmButton(this)"></textarea>
+            </div>
+
+            <button type="submit" name="confirm_cancel" id="confirm_btn" class="btn btn-danger btn-block" disabled>
+                Отменить занятие
+            </button>
+        </form>
+    {% else %}
+        <h2 class="section-title">Выберите занятие для отмены:</h2>
+        {% if lessons %}
+            <form method="POST">
+                {% for lesson in lessons %}
+                <label class="option-row" for="lesson_{{ lesson[0] }}">
+                    <input type="radio" name="lesson_id" value="{{ lesson[0] }}"
+                           id="lesson_{{ lesson[0] }}"
+                           onchange="this.form.submit()">
+                    <div>
+                        <strong>{{ lesson[1] }}</strong><br>
+                        {{ lesson[2] }} в {{ lesson[3] }}
+                    </div>
+                </label>
+                {% endfor %}
+                <input type="hidden" name="select_lesson" value="1">
+                {% if next_url %}
+                <input type="hidden" name="next" value="{{ next_url }}">
+                {% endif %}
+                <button type="submit" class="btn btn-primary btn-block">Выбрать</button>
+            </form>
+        {% else %}
+            <div class="empty-state">
+                <p>У вас нет запланированных занятий для отмены.</p>
+            </div>
+        {% endif %}
+    {% endif %}
+</div>
+
+<div class="page-footer">
+    <a href="{% if session.get('role') == 'senior_repetitor' %}{{ url_for('senior_repetitor') }}{% else %}{{ url_for('repetitor_main') }}{% endif %}" class="btn btn-secondary">← Назад</a>
+</div>
+
+    <script>
+        function toggleConfirmButton(textarea) {
+            const button = document.getElementById('confirm_btn');
+            if (button) {
+                button.disabled = textarea.value.trim() === '';
+            }
+        }
+    </script>
+{% endblock %}

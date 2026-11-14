@@ -1,0 +1,22 @@
+{% extends "base.html" %}
+{% block content %}
+<h1>Таблица нарушений</h1>
+<div class="toolbar">
+    <a href="?role=all" class="btn btn-sm {{ 'btn-primary' if role == 'all' else 'btn-secondary' }}">Все</a>
+    <a href="?role=managers" class="btn btn-sm {{ 'btn-primary' if role == 'managers' else 'btn-secondary' }}">Менеджеры</a>
+    <a href="?role=repetitors" class="btn btn-sm {{ 'btn-primary' if role == 'repetitors' else 'btn-secondary' }}">Репетиторы</a>
+</div>
+{% if rows %}
+<div class="table-wrap">
+<table class="data-table">
+    <thead><tr><th>Дата</th><th>Сотрудник</th><th>Роль</th><th>Причина</th><th>Описание</th><th>Кто отметил</th></tr></thead>
+    <tbody>
+    {% for r in rows %}
+        <tr><td>{{ r[0] }}</td><td>{{ r[2] }}</td><td>{{ r[3] }}</td><td>{{ r[4] }}</td><td><div class="cell-clip wide">{{ r[5] or '' }}</div></td><td>{{ r[6] }} ({{ r[7] }})</td></tr>
+    {% endfor %}
+    </tbody>
+</table>
+</div>
+{% else %}<div class="empty-state"><p>Нарушений нет.</p></div>{% endif %}
+<div class="page-footer"><a href="{{ panel_url }}" class="btn btn-secondary">← Назад</a></div>
+{% endblock %}

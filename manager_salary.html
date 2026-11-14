@@ -1,0 +1,53 @@
+{% extends "base.html" %}
+{% block content %}
+<h1>Моя зарплата</h1>
+<div class="stats-container">
+    <div class="stat-card red"><div class="stat-number">{{ "%.0f"|format(unpaid) }} ₽</div><div class="stat-label">Не выплачено</div></div>
+    <div class="stat-card green"><div class="stat-number">{{ "%.0f"|format(paid) }} ₽</div><div class="stat-label">Всего выплачено</div></div>
+</div>
+{% if rate %}
+<div class="section-card">
+    <div class="subheading">Ваша ставка</div>
+    <div class="info-row"><span class="val-primary">{{ rate[0] }} ₽</span> за один отклик</div>
+    <div class="info-row"><span class="val-primary">{{ rate[1] }} ₽</span> за проведённое пробное занятие</div>
+</div>
+{% else %}
+<div class="alert alert-warning"><strong>Ставка не установлена.</strong> Обратитесь к директору.</div>
+{% endif %}
+
+{% if accruals %}
+<h2 class="section-title">Начисления</h2>
+<div class="table-wrap">
+<table class="data-table">
+    <thead><tr><th>Дата</th><th>За что</th><th class="num">Количество</th><th class="num">Начислено</th><th>Статус</th></tr></thead>
+    <tbody>
+    {% for a in accruals %}
+        <tr>
+            <td>{{ a[3][:10] }}</td>
+            <td>{{ 'Отклики' if a[0] == 'responses' else 'Проведённое пробное' }}</td>
+            <td class="num">{{ "%.0f"|format(a[1] or 0) }}</td>
+            <td class="num"><strong>{{ "%.2f"|format(a[2]) }} ₽</strong></td>
+            <td>{% if a[4] %}<span class="tag tag-success">Выплачено</span>{% else %}<span class="tag tag-warning">Ожидает</span>{% endif %}</td>
+        </tr>
+    {% endfor %}
+    </tbody>
+</table>
+</div>
+{% endif %}
+
+{% if payouts %}
+<h2 class="section-title">Выплаты</h2>
+<div class="table-wrap">
+<table class="data-table">
+    <thead><tr><th>Дата</th><th class="num">Сумма</th><th>Примечание</th></tr></thead>
+    <tbody>
+    {% for p in payouts %}<tr><td>{{ p[1][:10] }}</td><td class="num">{{ "%.2f"|format(p[0]) }} ₽</td><td>{{ p[2] or '' }}</td></tr>{% endfor %}
+    </tbody>
+</table>
+</div>
+{% endif %}
+
+<div class="page-footer">
+    <a href="{{ url_for('manager') }}" class="btn btn-secondary">← Назад</a>
+</div>
+{% endblock %}

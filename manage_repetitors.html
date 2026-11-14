@@ -1,0 +1,64 @@
+{% extends "base.html" %}
+{% block content %}
+<div>
+    <h1>Управление репетиторами</h1>
+
+    {% with messages = get_flashed_messages() %}
+        {% if messages %}
+            <div class="alert alert-warning">
+                {% for message in messages %}
+                    <div>{{ message }}</div>
+                {% endfor %}
+            </div>
+        {% endif %}
+    {% endwith %}
+
+    {% for rep in repetitors %}
+    <div class="section-card">
+        <div class="section-card-header">
+            <div class="section-card-title">{{ rep[1] or rep[0] }}</div>
+            <span class="tag tag-primary">{{ rep[2] }}</span>
+        </div>
+        <div class="info-panel">
+            {% set binding = bindings.get(rep[0]) %}
+            {% if binding %}
+                <div><strong>Привязанный менеджер:</strong> {{ binding.manager_name }}</div>
+                <form method="POST" action="{{ url_for('detach_manager') }}" class="divider-top">
+                    <input type="hidden" name="repetitor_username" value="{{ rep[0] }}">
+                    <button type="submit" class="btn btn-danger btn-sm">Открепить менеджера</button>
+                </form>
+            {% else %}
+                <div><strong>Статус:</strong> Репетитор не привязан к аккаунту какого-либо менеджера</div>
+                {% if free_managers %}
+                <div class="divider-top">
+                    <form method="POST" action="{{ url_for('attach_manager') }}" class="form-inline">
+                        <input type="hidden" name="repetitor_username" value="{{ rep[0] }}">
+                        <div class="form-group">
+                            <label>Выберите менеджера:</label>
+                            <select name="manager_username" required>
+                                <option value="">-- Выберите --</option>
+                                {% for m in free_managers %}
+                                    <option value="{{ m[0] }}">{{ m[1] or m[0] }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <button type="submit" class="btn btn-success">Прикрепить менеджера</button>
+                    </form>
+                </div>
+                {% else %}
+                <div class="divider-top text-muted">Нет свободных менеджеров для привязки</div>
+                {% endif %}
+            {% endif %}
+        </div>
+    </div>
+    {% else %}
+    <div class="empty-state">
+        <p>В системе нет репетиторов.</p>
+    </div>
+    {% endfor %}
+
+    <div class="page-footer">
+        <a href="{{ panel_url }}" class="btn btn-secondary">← Назад</a>
+    </div>
+</div>
+{% endblock %}

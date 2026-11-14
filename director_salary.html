@@ -1,0 +1,128 @@
+{% extends "base.html" %}
+{% block content %}
+<h1>Зарплата сотрудников</h1>
+<p class="page-subtitle">Ставки, начисления и выплаты репетиторов и менеджеров.</p>
+
+<div class="toolbar">
+    <span>Роль:</span>
+    <a href="{{ url_for('director_salary', sort=sort, role='all') }}" class="btn btn-sm {{ 'btn-primary' if role_filter == 'all' else 'btn-secondary' }}">Все</a>
+    {% for key, label in role_labels.items() %}
+    <a href="{{ url_for('director_salary', sort=sort, role=key) }}" class="btn btn-sm {{ 'btn-primary' if role_filter == key else 'btn-secondary' }}">{{ label|capitalize }}</a>
+    {% endfor %}
+    <span>Сортировка:</span>
+    <a href="{{ url_for('director_salary', sort='name', role=role_filter) }}" class="btn btn-sm {{ 'btn-primary' if sort == 'name' else 'btn-secondary' }}">По имени</a>
+    <a href="{{ url_for('director_salary', sort='amount', role=role_filter) }}" class="btn btn-sm {{ 'btn-primary' if sort == 'amount' else 'btn-secondary' }}">По сумме долга</a>
+    <a href="{{ url_for('director_salary', sort='role', role=role_filter) }}" class="btn btn-sm {{ 'btn-primary' if sort == 'role' else 'btn-secondary' }}">По роли</a>
+</div>
+
+{% if salary_data %}
+{% for rep in salary_data %}
+<div class="section-card">
+    <div class="section-card-header">
+        <div>
+            <div class="section-card-title">{{ rep.name }}</div>
+            <div class="section-card-meta">{{ rep.role_label }}{% if rep.subject %} · {{ rep.subject }}{% endif %} · {{ rep.username }}</div>
+            {% if rep.is_manager %}
+                {% if rep.per_response is not none %}
+                <div class="section-card-meta val-primary">За отклик: <strong>{{ rep.per_response }} руб.</strong> | За проведённое пробное: <strong>{{ rep.per_trial }} руб.</strong></div>
+                {% else %}
+                <div class="section-card-meta val-danger">Ставка не установлена</div>
+                {% endif %}
+            {% else %}
+                {% if rep.rate_percent is not none %}
+                <div class="section-card-meta val-primary">
+                    {% if rep.rate_type == 'fixed' %}Фиксированно: <strong>{{ rep.fixed_amount }} руб.</strong> за занятие{% else %}Ставка: <strong>{{ rep.rate_percent }}%</strong> от занятия{% endif %}
+                </div>
+                {% else %}
+                <div class="section-card-meta val-danger">Ставка не установлена</div>
+                {% endif %}
+            {% endif %}
+        </div>
+        <div class="stats-container">
+            <div class="stat-card red"><div class="stat-number">{{ "%.0f"|format(rep.unpaid_amount) }} ₽</div><div class="stat-label">Не выплачено</div></div>
+            <div class="stat-card green"><div class="stat-number">{{ "%.0f"|format(rep.total_paid) }} ₽</div><div class="stat-label">Всего выплачено</div></div>
+        </div>
+    </div>
+
+    {% if rep.is_manager %}
+    <form method="POST">
+        <input type="hidden" name="action" value="set_manager_rate">
+        <input type="hidden" name="username" value="{{ rep.username }}">
+        <div class="form-inline divider-top">
+            <div class="form-group"><label>За один отклик (руб.)</label><input type="number" name="per_response" min="0" step="0.5" value="{{ rep.per_response or 0 }}" required></div>
+            <div class="form-group"><label>За проведённое пробное (руб.)</label><input type="number" name="per_trial" min="0" step="10" value="{{ rep.per_trial or 0 }}" required></div>
+            <button type="submit" class="btn btn-success">Сохранить ставку</button>
+        </div>
+    </form>
+    <form method="POST" class="divider-top">
+        <input type="hidden" name="action" value="accrue_manager">
+        <input type="hidden" name="username" value="{{ rep.username }}">
+        <span class="cell-note">К начислению: откликов {{ rep.pending_responses }}, проведённых пробных {{ rep.pending_trials }}</span>
+        <button type="submit" class="btn btn-primary">Начислить</button>
+    </form>
+    {% else %}
+    <form method="POST">
+        <input type="hidden" name="action" value="set_rate">
+        <input type="hidden" name="username" value="{{ rep.username }}">
+        <div class="form-inline divider-top">
+            <div class="form-group">
+                <label>Тип ставки</label>
+                <select name="rate_type">
+                    <option value="percent" {{ 'selected' if rep.rate_type == 'percent' }}>Процент от занятия</option>
+                    <option value="fixed" {{ 'selected' if rep.rate_type == 'fixed' }}>Фиксированная сумма за занятие</option>
+                </select>
+            </div>
+            <div class="form-group"><label>Процент</label><input type="number" name="rate_percent" min="0" max="100" step="0.5" value="{{ rep.rate_percent or 50 }}"></div>
+            <div class="form-group"><label>Фикс. сумма (руб.)</label><input type="number" name="fixed_amount" min="0" step="10" value="{{ rep.fixed_amount or 0 }}"></div>
+            <button type="submit" class="btn btn-success">Сохранить ставку</button>
+        </div>
+    </form>
+    <form method="POST" class="form-inline divider-top">
+        <input type="hidden" name="action" value="accrue_lesson">
+        <input type="hidden" name="username" value="{{ rep.username }}">
+        <input type="hidden" name="lesson_type" value="regular">
+        <div class="form-group"><label>Сумма занятия (руб.)</label><input type="number" name="lesson_amount" min="0" step="50" value="1500"></div>
+        <button type="submit" class="btn btn-primary">Начислить</button>
+    </form>
+    {% endif %}
+
+    {% if rep.unpaid_amount > 0 %}
+    <form method="POST" class="form-inline divider-top" onsubmit="return confirm('Отметить выплату для {{ rep.name }}?')">
+        <input type="hidden" name="action" value="mark_paid">
+        <input type="hidden" name="username" value="{{ rep.username }}">
+        <div class="form-group"><label>Выплачено (руб.)</label><input type="number" name="amount" min="0" step="0.01" value="{{ '%.2f'|format(rep.unpaid_amount) }}"></div>
+        <div class="form-group"><label>Примечание</label><input type="text" name="note"></div>
+        <button type="submit" class="btn btn-success">Выплачено</button>
+    </form>
+    {% endif %}
+
+    {% if rep.recent_accruals %}
+    <div class="subheading">Последние начисления</div>
+    <div class="table-wrap">
+    <table class="data-table">
+        <thead><tr><th class="num">#</th><th>Тип</th><th class="num">Сумма занятия</th><th class="num">Начислено</th><th>Дата</th><th>Статус</th></tr></thead>
+        <tbody>
+        {% for a in rep.recent_accruals %}
+            <tr>
+                <td class="num">{{ a[0] }}</td>
+                <td>{{ {'trial':'Пробное','responses':'Отклики','trial_held':'Проведённое пробное'}.get(a[1], 'Обычное') }}</td>
+                <td class="num">{{ "%.0f"|format(a[2] or 0) }}</td>
+                <td class="num"><strong>{{ "%.2f"|format(a[3]) }} ₽</strong></td>
+                <td>{{ a[4][:10] }}</td>
+                <td>{% if a[5] %}<span class="tag tag-success">Выплачено</span>{% else %}<span class="tag tag-warning">Ожидает</span>{% endif %}</td>
+            </tr>
+        {% endfor %}
+        </tbody>
+    </table>
+    </div>
+    {% endif %}
+</div>
+{% endfor %}
+{% else %}
+<div class="empty-state"><p>Сотрудников не найдено.</p></div>
+{% endif %}
+
+<div class="page-footer">
+    <a href="{{ panel_url }}" class="btn btn-secondary">← Назад</a>
+</div>
+{% endblock %}

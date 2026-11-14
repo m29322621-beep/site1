@@ -1,0 +1,73 @@
+{% extends "base.html" %}
+{% block content %}
+<h1>Проведённые занятия</h1>
+<p class="page-subtitle">Напоминание появляется через {{ duration }} мин. после начала занятия. По каждому занятию нужно либо указать причину, либо приложить чек и отчёт.</p>
+
+{% if pending %}
+{% for l in pending %}
+<div class="section-card">
+    <div class="section-card-header">
+        <div>
+            <h2 class="section-card-title">{{ l[1] }}</h2>
+            <div class="section-card-meta">{{ l[2] }} {{ l[3] }}</div>
+        </div>
+    </div>
+    <div class="form-card wide">
+        <form method="POST" enctype="multipart/form-data">
+            <input type="hidden" name="lesson_id" value="{{ l[0] }}">
+            <div class="form-group">
+                <label>Занятие было?</label>
+                <select name="held" onchange="var f=this.form;f.querySelector('.held-yes').style.display=this.value=='1'?'block':'none';f.querySelector('.held-no').style.display=this.value=='0'?'block':'none';">
+                    <option value="1">Было</option>
+                    <option value="0">Не было</option>
+                </select>
+            </div>
+            <div class="held-yes">
+                <div class="form-group"><label>Чек <span class="required-star">*</span></label><input type="file" name="check_file" accept="image/*,.pdf"></div>
+                <div class="form-group"><label>Сумма, руб. <span class="required-star">*</span></label><input type="number" name="amount" step="0.01" min="0" value="{{ prices.get(l[1]) or '' }}"></div>
+                <div class="form-group"><label>Что делали на занятии <span class="required-star">*</span></label><textarea name="work_done"></textarea></div>
+            </div>
+            <div class="held-no" style="display:none">
+                <div class="form-group"><label>Причина <span class="required-star">*</span></label><textarea name="reason"></textarea></div>
+            </div>
+            <button type="submit" class="btn btn-primary">Отправить</button>
+        </form>
+    </div>
+</div>
+{% endfor %}
+{% else %}
+<div class="empty-state"><p>Занятий, ожидающих отчёта, нет.</p></div>
+{% endif %}
+
+<h2 class="section-title">История</h2>
+{% if history %}
+<div class="table-wrap">
+<table class="data-table">
+    <thead><tr><th>Занятие</th><th>Ученик</th><th>Итог</th><th class="num">Сумма</th><th>Статус</th></tr></thead>
+    <tbody>
+    {% for h in history %}
+        <tr>
+            <td>{{ h[2] }} {{ h[3] }}</td>
+            <td>{{ h[1] }}</td>
+            <td>{% if h[4] %}{{ h[6] }}{% else %}Не было: {{ h[5] }}{% endif %}</td>
+            <td class="num">{% if h[4] %}{{ '%.2f'|format(h[7] or 0) }}{% endif %}</td>
+            <td>
+                {% if h[9] == 'pending' %}<span class="tag tag-warning">На проверке</span>
+                {% elif h[9] == 'verified' %}<span class="tag tag-success">Подтверждено</span>
+                {% elif h[9] == 'rejected' %}<span class="tag tag-muted">Отклонено</span>
+                {% elif h[9] == 'fake' %}<span class="tag tag-danger">Фейк</span>
+                {% else %}<span class="tag tag-muted">Не было</span>{% endif %}
+            </td>
+        </tr>
+    {% endfor %}
+    </tbody>
+</table>
+</div>
+{% else %}
+<div class="empty-state"><p>История пуста.</p></div>
+{% endif %}
+
+<div class="page-footer">
+    <a href="{{ url_for('repetitor_main') }}" class="btn btn-secondary">← Назад</a>
+</div>
+{% endblock %}

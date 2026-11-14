@@ -1,0 +1,152 @@
+{% extends "base.html" %}
+{% block content %}
+<h1>⚙️ Панель администратора</h1>
+
+<div class="actions-grid">
+    <a href="{{ url_for('admin_students') }}" class="action-card">
+        <div class="card-title">📋 Таблица учеников</div>
+        <div class="card-desc">Все записи учеников в системе</div>
+    </a>
+    <a href="{{ url_for('director_students') }}" class="action-card">
+        <div class="card-title">🎓 Ученики репетиторов</div>
+        <div class="card-desc">Добавление, перенос, удаление</div>
+    </a>
+    <a href="{{ url_for('director_salary') }}" class="action-card">
+        <div class="card-title">💰 Зарплаты</div>
+        <div class="card-desc">Ставки, начисления, выплаты</div>
+    </a>
+    <a href="{{ url_for('director_checks') }}" class="action-card">
+        <div class="card-title">✅ Проверка чеков</div>
+        <div class="card-desc">Да / нет / фейк</div>
+    </a>
+    <a href="{{ url_for('director_ledger') }}" class="action-card">
+        <div class="card-title">📒 Доходы и расходы</div>
+        <div class="card-desc">Поступления и выплаты</div>
+    </a>
+    <a href="{{ url_for('director_settings') }}" class="action-card">
+        <div class="card-title">⚙ Настройки</div>
+        <div class="card-desc">Время уведомления, лимит учеников</div>
+    </a>
+    <a href="{{ url_for('senior_manager_trial_lessons') }}" class="action-card">
+        <div class="card-title">🎯 Пробные занятия</div>
+        <div class="card-desc">Распределение пробных</div>
+    </a>
+    <a href="{{ url_for('manage_repetitors') }}" class="action-card">
+        <div class="card-title">🔗 Управление репетиторами</div>
+        <div class="card-desc">Привязка менеджеров</div>
+    </a>
+    <a href="{{ url_for('director_change_unique') }}" class="action-card">
+        <div class="card-title">🔄 Поменять репетитора</div>
+        <div class="card-desc">Смена репетитора ученику</div>
+    </a>
+    <a href="{{ url_for('senior_manager_stats') }}" class="action-card">
+        <div class="card-title">📊 Статистика менеджеров</div>
+        <div class="card-desc">Сводная статистика</div>
+    </a>
+    <a href="{{ url_for('director_tables') }}" class="action-card">
+        <div class="card-title">🗃 Таблицы</div>
+        <div class="card-desc">Все таблицы системы</div>
+    </a>
+    <a href="{{ url_for('senior_manager_table') }}" class="action-card">
+        <div class="card-title">🗂 Все записи</div>
+        <div class="card-desc">Записи всех менеджеров</div>
+    </a>
+    <a href="{{ url_for('director_weekly_report') }}" class="action-card">
+        <div class="card-title">🗓 Еженедельный отчёт</div>
+        <div class="card-desc">Отчёт по репетитору</div>
+    </a>
+    <a href="{{ url_for('school_schedule') }}" class="action-card">
+        <div class="card-title">📅 Расписание школы</div>
+        <div class="card-desc">По дням и списком</div>
+    </a>
+    <a href="{{ url_for('violations_table') }}" class="action-card">
+        <div class="card-title">⚠ Таблица нарушений</div>
+        <div class="card-desc">Нарушения сотрудников</div>
+    </a>
+    <a href="{{ url_for('director') }}" class="action-card">
+        <div class="card-title">🏛 Панель директора</div>
+        <div class="card-desc">Окна директора</div>
+    </a>
+    <a href="{{ url_for('logout') }}" class="action-card" style="border-color:#dc3545;">
+        <div class="card-title" style="color:#dc3545;">Выйти</div>
+        <div class="card-desc">Завершить текущую сессию</div>
+    </a>
+</div>
+
+<h2>Добавить пользователя</h2>
+<div class="form-card">
+    <form method="POST">
+        <div class="form-group">
+            <label>Логин <span class="required-star">*</span></label>
+            <input type="text" name="username" required>
+        </div>
+        <div class="form-group">
+            <label>Пароль <span class="required-star">*</span></label>
+            <input type="password" name="password" required>
+        </div>
+        <div class="form-group">
+            <label>Имя <span class="required-star">*</span></label>
+            <input type="text" name="name" required>
+        </div>
+        <div class="form-group">
+            <label>Роль <span class="required-star">*</span></label>
+            <select name="role" id="roleSelect" onchange="toggleSubject()" required>
+                <option value="">— Выберите роль —</option>
+                <option value="director">Директор</option>
+                <option value="senior_manager">Старший менеджер</option>
+                <option value="manager">Менеджер</option>
+                <option value="senior_repetitor">Старший репетитор</option>
+                <option value="repetitor">Репетитор</option>
+            </select>
+        </div>
+        <div class="form-group" id="subjectField" style="display:none;">
+            <label>Предмет <span class="required-star">*</span></label>
+            <select name="subject">
+                <option value="Математика">Математика</option>
+                <option value="Информатика">Информатика</option>
+                <option value="Обществознание">Обществознание</option>
+            </select>
+        </div>
+        <button type="submit" class="btn btn-primary btn-block">Добавить пользователя</button>
+    </form>
+</div>
+
+<h2>Список пользователей</h2>
+<table class="data-table">
+    <thead>
+        <tr>
+            <th>#</th>
+            <th>Логин</th>
+            <th>Роль</th>
+            <th>Предмет</th>
+            <th>Добавил</th>
+            <th>Действие</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for user in users %}
+        <tr>
+            <td>{{ loop.index }}</td>
+            <td>{{ user[1] }}</td>
+            <td>{{ user[2] }}</td>
+            <td>{{ user[3] or '—' }}</td>
+            <td>{{ user[4] or '—' }}</td>
+            <td>
+                <form method="POST" style="display:inline;">
+                    <input type="hidden" name="delete" value="{{ user[0] }}">
+                    <button type="submit" class="btn btn-danger btn-sm"
+                        onclick="return confirm('Удалить {{ user[1] }}?')">Удалить</button>
+                </form>
+            </td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+
+<script>
+function toggleSubject() {
+    const role = document.getElementById('roleSelect').value;
+    document.getElementById('subjectField').style.display = (role === 'repetitor' || role === 'senior_repetitor') ? 'block' : 'none';
+}
+</script>
+{% endblock %}

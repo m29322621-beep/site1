@@ -1,0 +1,25 @@
+{% extends "base.html" %}
+{% block content %}
+<h1>Доходы и расходы</h1>
+<form method="GET" class="toolbar">
+    <label>С</label><input type="date" name="from" value="{{ start }}" class="input-sm">
+    <label>По</label><input type="date" name="to" value="{{ end }}" class="input-sm">
+    <button type="submit" class="btn btn-sm btn-primary">Показать</button>
+</form>
+<div class="stats-container">
+    <div class="stat-card green"><div class="stat-number">{{ "%.0f"|format(income) }} ₽</div><div class="stat-label">Доходы</div></div>
+    <div class="stat-card red"><div class="stat-number">{{ "%.0f"|format(expense) }} ₽</div><div class="stat-label">Расходы</div></div>
+    <div class="stat-card"><div class="stat-number">{{ "%.0f"|format(income - expense) }} ₽</div><div class="stat-label">Итог</div></div>
+</div>
+{% if ops %}
+<div class="table-wrap">
+<table class="data-table">
+    <thead><tr><th>Дата</th><th>Операция</th><th>Сотрудник</th><th>Комментарий</th><th class="num">Сумма</th></tr></thead>
+    <tbody>
+    {% for o in ops %}<tr><td>{{ o[0] }}</td><td>{{ o[1] }}</td><td>{{ o[2] }}</td><td>{{ o[3] }}</td><td class="num {{ 'val-success' if o[4] > 0 else 'val-danger' }}">{{ "%.2f"|format(o[4]) }}</td></tr>{% endfor %}
+    </tbody>
+</table>
+</div>
+{% else %}<div class="empty-state"><p>Операций за период нет.</p></div>{% endif %}
+<div class="page-footer"><a href="{{ panel_url }}" class="btn btn-secondary">← Назад</a></div>
+{% endblock %}

@@ -1,0 +1,112 @@
+{% extends "base.html" %}
+{% block content %}
+<h1>Статистика работы</h1>
+
+<h2 class="section-title">Отклики по периодам</h2>
+<div class="table-wrap">
+<table class="data-table">
+    <thead><tr><th>Период</th><th class="num">Отправлено</th><th class="num">Ответили</th><th class="num">Записались</th></tr></thead>
+    <tbody>
+        <tr><td>Сегодня</td><td class="num">{{ periods.today[0] }}</td><td class="num">{{ periods.today[1] }}</td><td class="num">{{ periods.today[2] }}</td></tr>
+        <tr><td>Эта неделя (с понедельника)</td><td class="num">{{ periods.week[0] }}</td><td class="num">{{ periods.week[1] }}</td><td class="num">{{ periods.week[2] }}</td></tr>
+        <tr><td>Прошлая неделя</td><td class="num">{{ periods.prev_week[0] }}</td><td class="num">{{ periods.prev_week[1] }}</td><td class="num">{{ periods.prev_week[2] }}</td></tr>
+    </tbody>
+</table>
+</div>
+
+<div class="stats-container">
+    <div class="stat-card">
+        <div class="stat-number">{{ total_sent }}</div>
+        <div class="stat-label">Записей отправлено</div>
+    </div>
+    <div class="stat-card green">
+        <div class="stat-number">{{ "%.1f"|format(total_conversion_rate) }}%</div>
+        <div class="stat-label">Общая конверсия</div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-number">{{ subjects_stats|length }}</div>
+        <div class="stat-label">Предметов в работе</div>
+    </div>
+    {% if resp_totals %}
+    <div class="stat-card">
+        <div class="stat-number">{{ resp_totals[0] }}</div>
+        <div class="stat-label">Откликов отправлено (всего)</div>
+    </div>
+    <div class="stat-card orange">
+        <div class="stat-number">{{ resp_totals[1] }}</div>
+        <div class="stat-label">Клиентов ответило (всего)</div>
+    </div>
+    <div class="stat-card green">
+        <div class="stat-number">{{ resp_totals[2] }}</div>
+        <div class="stat-label">Записались с откликов (всего)</div>
+    </div>
+    {% endif %}
+</div>
+
+{% if conversion_data %}
+<h2 class="section-title">Статистика по предметам</h2>
+<table class="data-table">
+    <thead>
+        <tr>
+            <th>Предмет</th>
+            <th>Всего учеников</th>
+            <th>Записались</th>
+            <th>Конверсия</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for item in conversion_data %}
+        <tr>
+            <td><strong>{{ item.subject }}</strong></td>
+            <td>{{ item.total_students }}</td>
+            <td>{{ item.enrolled_students }}</td>
+            <td>
+                <span class="{% if item.conversion_rate >= 30 %}val-success{% elif item.conversion_rate >= 15 %}val-warning{% else %}val-danger{% endif %}">
+                    {{ "%.1f"|format(item.conversion_rate) }}%
+                </span>
+            </td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+{% else %}
+<div class="empty-state"><p>Нет данных по отправленным записям.</p></div>
+{% endif %}
+
+{% if responses_history %}
+<h2 class="section-title">История отчётов об откликах</h2>
+<table class="data-table">
+    <thead>
+        <tr>
+            <th>Дата</th>
+            <th>Откликов отправлено</th>
+            <th>Клиент ответил</th>
+            <th>Записался</th>
+            <th>Конверсия отклика</th>
+            <th>Заметки</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for r in responses_history %}
+        <tr>
+            <td>{{ r[4] }}</td>
+            <td>{{ r[1] }}</td>
+            <td>{{ r[2] }}</td>
+            <td>{{ r[3] }}</td>
+            <td>
+                {% if r[1] > 0 %}
+                <span class="val-primary">{{ "%.0f"|format(r[3]/r[1]*100) }}%</span>
+                {% else %}—{% endif %}
+            </td>
+            <td>{{ r[5] or '—' }}</td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+{% endif %}
+
+<div class="page-footer">
+    <a href="{{ url_for('manager_responses') }}" class="btn btn-primary">Добавить отчёт об откликах</a>
+    <a href="{{ url_for('manager') }}" class="btn btn-secondary">← Назад</a>
+</div>
+{% endblock %}

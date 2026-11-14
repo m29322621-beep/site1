@@ -1,0 +1,56 @@
+{% extends "base.html" %}
+{% block content %}
+<h1>Настройки</h1>
+
+<div class="section-card">
+    <h2 class="section-card-title">Уведомление о проведённом занятии</h2>
+    <p class="section-card-meta">Через сколько минут после начала занятия репетитор получает напоминание отправить отчёт и чек.</p>
+    <form method="POST" class="form-inline">
+        <input type="hidden" name="action" value="duration">
+        <div class="form-group">
+            <label>Минут</label>
+            <select name="duration">
+                {% for d in durations %}<option value="{{ d }}" {{ 'selected' if d == duration }}>{{ d }}</option>{% endfor %}
+            </select>
+        </div>
+        <button type="submit" class="btn btn-primary">Сохранить</button>
+    </form>
+</div>
+
+<div class="section-card">
+    <h2 class="section-card-title">Максимум учеников у репетитора</h2>
+    {% if reps %}
+    <div class="table-wrap">
+    <table class="data-table">
+        <thead><tr><th>Репетитор</th><th>Предмет</th><th class="num">Учеников</th><th>Лимит</th></tr></thead>
+        <tbody>
+        {% for r in reps %}
+            <tr>
+                <td>{{ r.name }}</td>
+                <td>{{ r.subject }}</td>
+                <td class="num">{{ r.count }}{% if r.limit %} / {{ r.limit }}{% endif %}</td>
+                <td>
+                    <form method="POST" class="inline-form cell-actions">
+                        <input type="hidden" name="action" value="limit">
+                        <input type="hidden" name="username" value="{{ r.username }}">
+                        <select name="max_students" class="input-sm">
+                            <option value="">Без лимита</option>
+                            {% for c in choices %}<option value="{{ c }}" {{ 'selected' if c == r.limit }}>{{ c }}</option>{% endfor %}
+                        </select>
+                        <button type="submit" class="btn btn-sm btn-primary">Сохранить</button>
+                    </form>
+                </td>
+            </tr>
+        {% endfor %}
+        </tbody>
+    </table>
+    </div>
+    {% else %}
+    <div class="empty-state"><p>Репетиторов пока нет.</p></div>
+    {% endif %}
+</div>
+
+<div class="page-footer">
+    <a href="{{ panel_url }}" class="btn btn-secondary">← Назад</a>
+</div>
+{% endblock %}

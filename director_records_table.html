@@ -1,0 +1,60 @@
+{% extends "base.html" %}
+{% block content %}
+<h1>Таблица записей директора</h1>
+
+{% if records %}
+<div class="table-wrap">
+<table class="data-table">
+    <thead>
+    <tr>
+        <th>ФИО ученика</th>
+        <th>Предмет</th>
+        <th>Дополнительная информация</th>
+        <th>Дата создания</th>
+        <th>Действие</th>
+    </tr>
+    </thead>
+    <tbody>
+    {% for r in records %}
+    <tr>
+        <td>{{ r[1] }}</td>
+        <td>{{ r[2] }}</td>
+        <td>
+            <span class="cell-clip">{{ r[3] if r[3] else '—' }}</span>
+        </td>
+        <td>{{ r[4] }}</td>
+        <td>
+            <form method="POST" class="inline-form">
+                <input type="hidden" name="delete" value="{{ r[0] }}">
+                <button type="submit" class="btn btn-danger btn-sm" onclick="return confirm('Удалить эту запись?')">
+                    Удалить
+                </button>
+            </form>
+        </td>
+    </tr>
+    {% endfor %}
+    </tbody>
+</table>
+</div>
+
+<div class="btn-row">
+    <form method="POST" onsubmit="return confirm('Вы точно хотите очистить всю таблицу?')">
+        <button type="submit" name="clear" value="1" class="btn btn-warning">Очистить таблицу</button>
+    </form>
+
+    <form method="POST" onsubmit="return confirm('Отправить все данные директора в общую базу?')">
+        <button type="submit" name="send_director" value="1" class="btn btn-success">Отправить данные</button>
+    </form>
+</div>
+
+{% else %}
+<div class="empty-state">
+    <p>Записей пока нет</p>
+    <p>Добавьте новую запись через меню</p>
+</div>
+{% endif %}
+
+<div class="page-footer">
+    <a href="{{ panel_url }}" class="btn btn-secondary">← Назад</a>
+</div>
+{% endblock %}

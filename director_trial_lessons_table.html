@@ -1,0 +1,88 @@
+{% extends "base.html" %}
+{% block content %}
+<h1>Пробные занятия</h1>
+
+<div class="stats-container">
+    <div class="stat-card">
+        <div class="stat-number">{{ total_count }}</div>
+        <div class="stat-label">Всего</div>
+    </div>
+    <div class="stat-card orange">
+        <div class="stat-number">{{ active_count }}</div>
+        <div class="stat-label">Активных</div>
+    </div>
+    <div class="stat-card green">
+        <div class="stat-number">{{ completed_count }}</div>
+        <div class="stat-label">Завершённых</div>
+    </div>
+</div>
+
+<div class="toolbar">
+    <a href="?filter=all" class="btn {% if filter_type == 'all' %}btn-primary{% else %}btn-secondary{% endif %}">Все</a>
+    <a href="?filter=active" class="btn {% if filter_type == 'active' %}btn-primary{% else %}btn-secondary{% endif %}">Активные</a>
+    <a href="?filter=completed" class="btn {% if filter_type == 'completed' %}btn-primary{% else %}btn-secondary{% endif %}">Завершённые</a>
+</div>
+
+{% if trials %}
+<div class="table-wrap">
+<table class="data-table">
+    <thead>
+        <tr>
+            <th class="num">#</th>
+            <th>Ученик</th>
+            <th>Предмет</th>
+            <th>Менеджер</th>
+            <th>Репетитор</th>
+            <th>Дата</th>
+            <th>Время</th>
+            <th>Статус</th>
+            <th>Результат</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for trial in trials %}
+        <tr>
+            <td class="num">{{ loop.index }}</td>
+            <td><strong>{{ trial[1] }}</strong></td>
+            <td>{{ trial[2] }}</td>
+            <td>{{ trial[3] }}</td>
+            <td>{{ trial[4] or '—' }}</td>
+            <td>{{ trial[5] or '—' }}</td>
+            <td>{{ trial[6] or '—' }}</td>
+            <td>
+                {% if trial[7] == 'unassigned' %}
+                    <span class="tag tag-warning">Не назначено</span>
+                {% elif trial[7] == 'scheduled' %}
+                    <span class="tag tag-info">Назначено</span>
+                {% elif trial[7] == 'completed' %}
+                    <span class="tag tag-success">Завершено</span>
+                {% else %}
+                    {{ trial[7] }}
+                {% endif %}
+            </td>
+            <td>
+                {% if trial[8] == 'enrolled' %}
+                    <span class="tag tag-success">Записался</span>
+                {% elif trial[8] == 'refused' %}
+                    <span class="tag tag-danger">Не записался</span>
+                {% elif trial[8] == 'thinking' %}
+                    <span class="tag tag-warning">Думает</span>
+                {% elif trial[8] == 'absent' %}
+                    <span class="tag tag-muted">Не было</span>
+                {% else %}
+                    <span class="cell-empty">—</span>
+                {% endif %}
+            </td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+</div>
+{% else %}
+<div class="empty-state"></div>
+{% endif %}
+
+<div class="page-footer">
+    <a href="{{ url_for('director_tables') }}" class="btn btn-secondary">← Назад</a>
+</div>
+{% endblock %}

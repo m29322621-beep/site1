@@ -1,0 +1,33 @@
+{% extends "base.html" %}
+{% block content %}
+<h1>Данные учеников</h1>
+<p class="page-subtitle">Учеников: {{ count }}{% if limit %} из {{ limit }}{% endif %}</p>
+
+{% if students %}
+{% for s in students %}
+<div class="section-card">
+    <h2 class="section-card-title">{{ s.name }}</h2>
+    <div class="section-card-meta">{{ s.subject }}</div>
+    <form method="POST" class="form-card wide">
+        <input type="hidden" name="student_name" value="{{ s.name }}">
+        <input type="hidden" name="subject" value="{{ s.subject }}">
+        <div class="form-inline">
+            <div class="form-group"><label>Родитель</label><input type="text" name="parent_name" value="{{ s.parent_name }}"></div>
+            <div class="form-group"><label>Telegram / номер родителя</label><input type="text" name="contact" value="{{ s.contact }}"></div>
+            <div class="form-group"><label>Класс</label><input type="text" name="grade" value="{{ s.grade }}"></div>
+            <div class="form-group"><label>Часовой пояс</label><input type="text" name="timezone" value="{{ s.timezone }}"></div>
+            <div class="form-group"><label>Цена занятия</label><input type="text" name="price" value="{{ s.price }}"></div>
+        </div>
+        <div class="form-group"><label>Заметки</label><textarea name="notes">{{ s.notes }}</textarea></div>
+        <button type="submit" class="btn btn-primary">Сохранить</button>
+    </form>
+</div>
+{% endfor %}
+{% else %}
+<div class="empty-state"><p>Учеников пока нет.</p></div>
+{% endif %}
+
+<div class="page-footer">
+    <a href="{{ url_for('repetitor_main') }}" class="btn btn-secondary">← Назад</a>
+</div>
+{% endblock %}

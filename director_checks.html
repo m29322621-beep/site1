@@ -1,0 +1,55 @@
+{% extends "base.html" %}
+{% block content %}
+<h1>Проверка чеков</h1>
+
+<div class="toolbar">
+    {% for key, label in [('pending','Ожидают'),('verified','Подтверждённые'),('rejected','Отклонённые'),('fake','Фейки'),('all','Все')] %}
+    <a href="{{ url_for('director_checks', status=key) }}" class="btn btn-sm {{ 'btn-primary' if status == key else 'btn-secondary' }}">{{ label }}{% if key != 'all' and counts.get(key) %} ({{ counts.get(key) }}){% endif %}</a>
+    {% endfor %}
+</div>
+
+{% if rows %}
+<div class="table-wrap">
+<table class="data-table">
+    <thead>
+        <tr><th>Дата</th><th>Репетитор</th><th>Ученик</th><th class="num">Сумма</th><th>Что делали</th><th>Чек</th><th>Оценка</th><th>Статус</th><th></th></tr>
+    </thead>
+    <tbody>
+    {% for r in rows %}
+        <tr>
+            <td>{{ r[4] }} {{ r[5] }}</td>
+            <td>{{ r[2] or r[1] }}</td>
+            <td>{{ r[3] }}</td>
+            <td class="num">{{ '%.2f'|format(r[6] or 0) }}</td>
+            <td><div class="cell-clip wide">{{ r[7] or '' }}</div></td>
+            <td>{% if r[8] %}<a href="{{ url_for('uploaded_file', name=r[8]) }}" target="_blank">Открыть</a>{% endif %}</td>
+            <td>{% if r[11] %}{{ r[11] }}/10{% endif %}{% if r[12] %}<div class="val-danger">Жалоба: {{ r[12] }}</div>{% endif %}</td>
+            <td>
+                {% if r[9] == 'pending' %}<span class="tag tag-warning">Ожидает</span>
+                {% elif r[9] == 'verified' %}<span class="tag tag-success">Подтверждён</span>
+                {% elif r[9] == 'rejected' %}<span class="tag tag-muted">Отклонён</span>
+                {% else %}<span class="tag tag-danger">Фейк</span>{% endif %}
+            </td>
+            <td>
+                {% if r[9] == 'pending' %}
+                <form method="POST" class="inline-form cell-actions">
+                    <input type="hidden" name="report_id" value="{{ r[0] }}">
+                    <button type="submit" name="verdict" value="yes" class="btn btn-sm btn-success">Да</button>
+                    <button type="submit" name="verdict" value="no" class="btn btn-sm btn-warning">Нет</button>
+                    <button type="submit" name="verdict" value="fake" class="btn btn-sm btn-danger">Фейк</button>
+                </form>
+                {% endif %}
+            </td>
+        </tr>
+    {% endfor %}
+    </tbody>
+</table>
+</div>
+{% else %}
+<div class="empty-state"><p>Чеков в этом разделе нет.</p></div>
+{% endif %}
+
+<div class="page-footer">
+    <a href="{{ panel_url }}" class="btn btn-secondary">← Назад</a>
+</div>
+{% endblock %}

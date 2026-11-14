@@ -1,0 +1,45 @@
+{% extends "base.html" %}
+{% block content %}
+<h1>Расписание школы</h1>
+<p class="page-subtitle">{{ start.strftime('%d.%m.%Y') }} — {{ end.strftime('%d.%m.%Y') }}</p>
+<div class="toolbar">
+    <a href="?week={{ prev_week }}&view={{ view }}&rep={{ rep }}" class="btn btn-sm btn-secondary">← Прошлая неделя</a>
+    <a href="?week={{ next_week }}&view={{ view }}&rep={{ rep }}" class="btn btn-sm btn-secondary">Следующая неделя →</a>
+    <a href="?week={{ start.strftime('%Y-%m-%d') }}&view=days&rep={{ rep }}" class="btn btn-sm {{ 'btn-primary' if view == 'days' else 'btn-secondary' }}">По дням</a>
+    <a href="?week={{ start.strftime('%Y-%m-%d') }}&view=list&rep={{ rep }}" class="btn btn-sm {{ 'btn-primary' if view == 'list' else 'btn-secondary' }}">Списком</a>
+    <form method="GET" class="inline-form cell-actions">
+        <input type="hidden" name="week" value="{{ start.strftime('%Y-%m-%d') }}"><input type="hidden" name="view" value="{{ view }}">
+        <select name="rep" class="input-sm" onchange="this.form.submit()">
+            <option value="">Все репетиторы</option>
+            {% for r in reps %}<option value="{{ r[0] }}" {{ 'selected' if r[0] == rep }}>{{ r[1] or r[0] }}</option>{% endfor %}
+        </select>
+    </form>
+</div>
+
+{% if view == 'list' %}
+{% if rows %}
+<div class="table-wrap">
+<table class="data-table">
+    <thead><tr><th>Дата</th><th>Время</th><th>Ученик</th><th>Предмет</th><th>Репетитор</th><th>Тип</th></tr></thead>
+    <tbody>
+    {% for r in rows %}<tr><td>{{ r[0] }}</td><td>{{ r[1] }}</td><td>{{ r[2] }}</td><td>{{ r[3] }}</td><td>{{ r[5] }}</td><td>{{ r[6] }}</td></tr>{% endfor %}
+    </tbody>
+</table>
+</div>
+{% else %}<div class="empty-state"><p>Занятий на этой неделе нет.</p></div>{% endif %}
+{% else %}
+<div class="week-grid">
+    {% for d in days %}
+    <div class="day-card">
+        <div class="day-card-header">{{ d.label }}</div>
+        <div class="day-card-body">
+        {% for l in d.lessons %}
+            <div class="lesson-item"><strong>{{ l[1] }}</strong> {{ l[2] }}<div class="cell-note">{{ l[5] }} · {{ l[6] }}</div></div>
+        {% else %}<div class="cell-empty">—</div>{% endfor %}
+        </div>
+    </div>
+    {% endfor %}
+</div>
+{% endif %}
+<div class="page-footer"><a href="{{ back_url }}" class="btn btn-secondary">← Назад</a></div>
+{% endblock %}

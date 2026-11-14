@@ -1,0 +1,31 @@
+{% extends "base.html" %}
+{% block content %}
+<div>
+        <h1>Таблицы для просмотра</h1>
+
+        <div class="actions-grid">
+            <a href="{{ url_for('director_trial_lessons_table') }}" class="action-card">
+                <div class="card-title">Пробные занятия</div>
+                <div class="card-desc">Просмотр всех пробных занятий с деталями и фильтрацией</div>
+                <div class="val-primary">Перейти →</div>
+            </a>
+
+            
+            <div class="action-card disabled">
+                <div class="card-title">Регулярные занятия</div>
+                <div class="card-desc">Таблица регулярных занятий и расписания</div>
+                <div class="text-muted">Скоро</div>
+            </div>
+
+            <div class="action-card disabled">
+                <div class="card-title">Все пользователи</div>
+                <div class="card-desc">Полный список всех пользователей системы</div>
+                <div class="text-muted">Скоро</div>
+            </div>
+        </div>
+
+        <div class="page-footer">
+            <a href="{{ panel_url }}" class="btn btn-secondary">← Назад</a>
+        </div>
+    </div>
+{% endblock %}

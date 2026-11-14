@@ -1,0 +1,77 @@
+{% extends "base.html" %}
+{% block content %}
+<h1>Еженедельный отчёт</h1>
+<p class="page-subtitle">{{ rep_name }}{% if subject %} · {{ subject }}{% endif %} · {{ start.strftime('%d.%m.%Y') }} — {{ end.strftime('%d.%m.%Y') }}</p>
+
+<div class="toolbar">
+    <a href="?week={{ prev_week }}{% if rep_choices is not none %}&rep={{ rep }}{% endif %}" class="btn btn-sm btn-secondary">← Прошлая неделя</a>
+    <a href="?week={{ next_week }}{% if rep_choices is not none %}&rep={{ rep }}{% endif %}" class="btn btn-sm btn-secondary">Следующая неделя →</a>
+    {% if rep_choices is not none %}
+    <form method="GET" class="inline-form cell-actions">
+        <input type="hidden" name="week" value="{{ start.strftime('%Y-%m-%d') }}">
+        <select name="rep" class="input-sm" onchange="this.form.submit()">
+            {% for c in rep_choices %}<option value="{{ c[0] }}" {{ 'selected' if c[0] == rep }}>{{ c[1] or c[0] }}</option>{% endfor %}
+        </select>
+    </form>
+    {% endif %}
+</div>
+
+<div class="stats-container">
+    <div class="stat-card"><div class="stat-number">{{ held_count }}</div><div class="stat-label">Проведено занятий</div></div>
+    <div class="stat-card green"><div class="stat-number">{{ "%.0f"|format(income) }} ₽</div><div class="stat-label">Доход</div></div>
+    <div class="stat-card orange"><div class="stat-number">{{ "%.0f"|format(paid) }} ₽</div><div class="stat-label">Выплачено</div></div>
+</div>
+
+<h2 class="section-title">Ученики и расписание</h2>
+{% if students %}
+<div class="table-wrap">
+<table class="data-table">
+    <thead><tr><th>Ученик</th><th>Предмет</th><th>Класс</th><th>Расписание на неделю</th><th>Заметки</th></tr></thead>
+    <tbody>
+    {% for s in students %}<tr><td>{{ s.name }}</td><td>{{ s.subject }}</td><td>{{ s.grade }}</td><td>{{ s.schedule }}</td><td>{{ s.notes }}</td></tr>{% endfor %}
+    </tbody>
+</table>
+</div>
+{% else %}<div class="empty-state"><p>Учеников нет.</p></div>{% endif %}
+
+<h2 class="section-title">Переносы и отмены</h2>
+{% if changes %}
+<div class="table-wrap">
+<table class="data-table">
+    <thead><tr><th>Когда</th><th>Действие</th><th>Ученик</th><th>Было</th><th>Стало</th><th>Причина</th></tr></thead>
+    <tbody>
+    {% for c in changes %}
+        <tr><td>{{ c[7] }}</td><td>{{ 'Перенос' if c[0] == 'reschedule' else ('Отмена' if c[0] == 'cancel' else c[0]) }}</td><td>{{ c[1] }}</td>
+            <td>{{ c[2] or '' }} {{ c[3] or '' }}</td><td>{{ c[4] or '' }} {{ c[5] or '' }}</td><td>{{ c[6] or '' }}</td></tr>
+    {% endfor %}
+    </tbody>
+</table>
+</div>
+{% else %}<div class="empty-state"><p>Переносов и отмен не было.</p></div>{% endif %}
+
+<h2 class="section-title">Нарушения</h2>
+{% if violations %}
+<div class="table-wrap">
+<table class="data-table">
+    <thead><tr><th>Дата</th><th>Причина</th><th>Описание</th><th>Автор</th></tr></thead>
+    <tbody>{% for v in violations %}<tr><td>{{ v[0] }}</td><td>{{ v[1] }}</td><td>{{ v[2] }}</td><td>{{ v[3] }}</td></tr>{% endfor %}</tbody>
+</table>
+</div>
+{% else %}<div class="empty-state"><p>Нарушений нет.</p></div>{% endif %}
+
+<h2 class="section-title">Доходы и расходы</h2>
+{% if ops %}
+<div class="table-wrap">
+<table class="data-table">
+    <thead><tr><th>Дата</th><th>Операция</th><th>Комментарий</th><th class="num">Сумма</th></tr></thead>
+    <tbody>
+    {% for o in ops %}<tr><td>{{ o[0] }}</td><td>{{ o[1] }}</td><td>{{ o[2] }}</td><td class="num {{ 'val-success' if o[3] > 0 else 'val-danger' }}">{{ "%.2f"|format(o[3]) }}</td></tr>{% endfor %}
+    </tbody>
+</table>
+</div>
+{% else %}<div class="empty-state"><p>Операций нет.</p></div>{% endif %}
+
+<div class="page-footer">
+    <a href="{{ back_url }}" class="btn btn-secondary">← Назад</a>
+</div>
+{% endblock %}

@@ -1,0 +1,44 @@
+
+{% extends "base.html" %}
+{% block content %}
+<h1>Закрепление репетиторов за учениками</h1>
+
+{% if records %}
+<div class="table-wrap">
+<table class="data-table">
+    <thead>
+    <tr><th>ФИО ученика</th><th>Предмет</th><th>Менеджер</th><th>Репетитор</th><th>Действие</th></tr>
+    </thead>
+    <tbody>
+    {% for r in records %}
+    <tr>
+        <td>{{ r['student_name'] }}</td>
+        <td>{{ r['subject'] }}</td>
+        <td>{{ r['manager_username'] }}</td>
+        <td>{{ r['repetitor_username'] if r['repetitor_username'] else "Не назначен" }}</td>
+        <td>
+            <form method="POST" action="{{ url_for('director_assign') }}" class="table-form">
+                <input type="hidden" name="record_id" value="{{ r['id'] }}">
+                <select name="repetitor_username" class="input-sm" required>
+                    {% for rep in repetitors %}
+                        <option value="{{ rep[1] }}" {% if rep[1] == r['repetitor_username'] %}selected{% endif %}>
+                            {{ rep[1] }}
+                        </option>
+                    {% endfor %}
+                </select>
+                <button type="submit" class="btn btn-success btn-sm">Сохранить</button>
+            </form>
+        </td>
+    </tr>
+    {% endfor %}
+    </tbody>
+</table>
+</div>
+{% else %}
+<div class="empty-state"><p>Нет записей учеников</p></div>
+{% endif %}
+
+<div class="page-footer">
+    <a href="{{ panel_url }}" class="btn btn-secondary">← Назад</a>
+</div>
+{% endblock %}
