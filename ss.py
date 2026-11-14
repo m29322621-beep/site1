@@ -329,11 +329,13 @@ def migrate_db():
             cols = [c[1] for c in cursor.fetchall()]
             if column not in cols:
                 cursor.execute(f'ALTER TABLE {table} ADD COLUMN {column} {col_type}')
+                print(f"Добавлена колонка {column} в {table}")
 
         def ensure_table(name, sql):
             cursor.execute(f"SELECT name FROM sqlite_master WHERE type='table' AND name='{name}'")
             if not cursor.fetchone():
                 cursor.execute(sql)
+                print(f"Создана таблица {name}")
 
         ensure_column('submitted_records', 'additional_info')
         ensure_column('users', 'added_by')
@@ -540,7 +542,7 @@ def admin():
             name = request.form['name']
             role = request.form['role']
             subject = None
-            if role == 'repetitor':
+            if role in ('repetitor', 'senior_repetitor'):
                 subject = request.form.get('subject')
                 if not subject:
                     flash("Для репетитора необходимо указать предмет!")
@@ -605,7 +607,7 @@ def director_add_user_db():
             flash("Директор не может создавать других директоров!")
             return redirect(url_for('director_add_user_db'))
         subject = None
-        if role == 'repetitor':
+        if role in ('repetitor', 'senior_repetitor'):
             subject = request.form.get('subject')
             if not subject:
                 flash("Для репетитора необходимо указать предмет!")
@@ -965,7 +967,7 @@ def senior_manager_trial_lessons():
     unassigned_trials = cursor.fetchall()
     cursor.execute('''SELECT tl.id, tl.student_name, tl.subject, tl.manager_username,
                              tl.repetitor_username, tl.scheduled_date, tl.scheduled_time, tl.created_at
-                      FROM trial_lessons tl WHERE tl.repetitor_username IS NOT NULL AND tl.status = "scheduled"
+                      FROM trial_lessons tl WHERE tl.repetitor_username IS NOT NULL AND tl.status IN ("unassigned", "scheduled")
                       ORDER BY tl.scheduled_date, tl.scheduled_time''')
     scheduled_trials = cursor.fetchall()
     day_filter = request.args.get('day', '')
@@ -1028,9 +1030,14 @@ def senior_manager_assign_repetitor():
                            (student[0], student[1], repetitor_username))
             if not cursor.fetchone():
                 now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-                cursor.execute('''INSERT INTO trial_lessons (student_name, subject, manager_username, repetitor_username, status, created_at, updated_at)
-                                  VALUES (?, ?, ?, ?, "unassigned", ?, ?)''',
-                               (student[0], student[1], student[2], repetitor_username, now, now))
+                cursor.execute('''UPDATE trial_lessons SET repetitor_username=?, updated_at=?
+                                  WHERE id=(SELECT id FROM trial_lessons WHERE student_name=? AND subject=? AND repetitor_username IS NULL
+                                            AND status="unassigned" ORDER BY created_at LIMIT 1)''',
+                               (repetitor_username, now, student[0], student[1]))
+                if cursor.rowcount == 0:
+                    cursor.execute('''INSERT INTO trial_lessons (student_name, subject, manager_username, repetitor_username, status, created_at, updated_at)
+                                      VALUES (?, ?, ?, ?, "unassigned", ?, ?)''',
+                                   (student[0], student[1], student[2], repetitor_username, now, now))
             db.commit()
             flash(f"Репетитор {repetitor_username} назначен ученику!")
         return redirect(url_for('senior_manager_assign_repetitor'))
